@@ -5,6 +5,9 @@ const panelNormalEl = document.getElementById("panelNormal");
 const panelTrainingEl = document.getElementById("panelTraining");
 const voiceEl = document.getElementById("voice");
 const styleEl = document.getElementById("style");
+const speechStyleEl = document.getElementById("speechStyle");
+const voiceToneEl = document.getElementById("voiceTone");
+const voiceCharacterEl = document.getElementById("voiceCharacter");
 const rateEl = document.getElementById("rate");
 const pitchEl = document.getElementById("pitch");
 const volumeEl = document.getElementById("volume");
@@ -33,6 +36,12 @@ const adjustVolumeEl = document.getElementById("adjustVolume");
 const adjustRateValueEl = document.getElementById("adjustRateValue");
 const adjustPitchValueEl = document.getElementById("adjustPitchValue");
 const adjustVolumeValueEl = document.getElementById("adjustVolumeValue");
+const intentTargetEl = document.getElementById("intentTarget");
+const intensityTargetEl = document.getElementById("intensityTarget");
+const intensityTargetValueEl = document.getElementById("intensityTargetValue");
+const transitionNoteEl = document.getElementById("transitionNote");
+const voiceFitEl = document.getElementById("voiceFit");
+const voiceFitValueEl = document.getElementById("voiceFitValue");
 const trainingProfileEl = document.getElementById("trainingProfile");
 const trainingStyleEl = document.getElementById("trainingStyle");
 const trainingVoiceEl = document.getElementById("trainingVoice");
@@ -157,6 +166,9 @@ async function loadDefaults() {
   const styles = Array.isArray(styleData.styles) ? styleData.styles : ["natural"];
   styleEl.innerHTML = styles.map((s) => `<option value="${s}">${s}</option>`).join("");
   styleEl.value = cfgData.defaults.style || styleData.defaultStyle || styles[0] || "natural";
+  speechStyleEl.value = cfgData.defaults.speechStyle || "auto";
+  voiceToneEl.value = cfgData.defaults.voiceTone || "auto";
+  voiceCharacterEl.checked = Boolean(cfgData.defaults.voiceCharacter ?? true);
   trainingStyleEl.innerHTML = styles.map((s) => `<option value="${s}">${s}</option>`).join("");
   trainingStyleEl.value = styleEl.value;
   const profiles = Array.isArray(profileData.profiles) ? profileData.profiles : [];
@@ -246,7 +258,10 @@ async function submitJob() {
       outputName: outputNameEl.value.trim(),
       humanize: humanizeEl.checked,
       humanizeIntensity: Number(humanizeIntensityEl.value),
-      style: styleEl.value
+      style: styleEl.value,
+      speech_style: speechStyleEl.value,
+      voice_character: voiceCharacterEl.checked,
+      voice_tone: voiceToneEl.value
     })
   });
 
@@ -378,7 +393,11 @@ feedbackBtnEl.addEventListener("click", async () => {
         notes: feedbackNotesEl.value.trim(),
         adjustRate: Number(adjustRateEl.value),
         adjustPitch: Number(adjustPitchEl.value),
-        adjustVolume: Number(adjustVolumeEl.value)
+        adjustVolume: Number(adjustVolumeEl.value),
+        intent_target: intentTargetEl.value || null,
+        intensity_target: Number(intensityTargetEl.value),
+        transition_note: transitionNoteEl.value.trim(),
+        voice_fit: Number(voiceFitEl.value)
       })
     });
     if (!res.ok) {
@@ -410,6 +429,12 @@ adjustPitchEl.addEventListener("input", () => {
 });
 adjustVolumeEl.addEventListener("input", () => {
   adjustVolumeValueEl.textContent = adjustVolumeEl.value;
+});
+intensityTargetEl.addEventListener("input", () => {
+  intensityTargetValueEl.textContent = Number(intensityTargetEl.value).toFixed(2);
+});
+voiceFitEl.addEventListener("input", () => {
+  voiceFitValueEl.textContent = String(voiceFitEl.value);
 });
 
 switchTab("normal");

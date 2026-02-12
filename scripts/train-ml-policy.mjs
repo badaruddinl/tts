@@ -55,6 +55,11 @@ function asNum(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function pickNum(row, snakeKey, camelKey = "", fallback = 0) {
+  const v = row?.[snakeKey] ?? (camelKey ? row?.[camelKey] : undefined);
+  return asNum(v, fallback);
+}
+
 function buildSamples(feedbackRows) {
   const samples = [];
   for (const row of feedbackRows) {
@@ -65,7 +70,10 @@ function buildSamples(feedbackRows) {
     if (segments.length === 0) continue;
 
     const score = asNum(row.score, 3);
-    const conf = Math.max(0.4, Math.min(1.2, (6 - score) / 3));
+    const intensityTarget = Math.max(0, Math.min(1, pickNum(row, "intensity_target", "intensityTarget", 0.6)));
+    const voiceFit = Math.max(1, Math.min(5, pickNum(row, "voice_fit", "voiceFit", 4)));
+    const confBase = Math.max(0.4, Math.min(1.2, (6 - score) / 3));
+    const conf = confBase * (0.7 + intensityTarget * 0.5) * (0.8 + voiceFit / 10);
     const baseRateAdj = asNum(row.adjustRate, 0);
     const basePitchAdj = asNum(row.adjustPitch, 0);
     const baseVolumeAdj = asNum(row.adjustVolume, 0);

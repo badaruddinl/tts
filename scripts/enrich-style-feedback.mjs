@@ -100,8 +100,28 @@ function analyzeSegments(segments) {
     varVolume: stddev(volume, meanVolume),
     punctQ,
     punctX,
-    punctE
+    punctE,
+    intents: segments.map((s) => String(s?.reason?.intent || "netral")),
+    intensities: segments.map((s) => Number(s?.reason?.intentIntensity ?? 0)),
+    transitions: segments.map((s) => String(s?.reason?.transition || "steady"))
   };
+}
+
+function dominantIntent(intents) {
+  const freq = new Map();
+  for (const item of intents || []) {
+    const key = String(item || "netral");
+    freq.set(key, (freq.get(key) || 0) + 1);
+  }
+  let best = "netral";
+  let bestN = -1;
+  for (const [k, n] of freq.entries()) {
+    if (n > bestN) {
+      best = k;
+      bestN = n;
+    }
+  }
+  return best;
 }
 
 function buildAdjust(style, metrics) {
@@ -144,7 +164,24 @@ function buildAdjust(style, metrics) {
     `energy=${metrics.meanVolume.toFixed(1)}, var=${varMean.toFixed(2)}, ` +
     `q=${metrics.punctQ}, x=${metrics.punctX}, e=${metrics.punctE}`;
 
-  return { adjustRate, adjustPitch, adjustVolume, score, notes };
+  const intentTarget = dominantIntent(metrics.intents);
+  const intensityTarget = clamp(average(metrics.intensities), 0, 1);
+  const smoothedCount = metrics.transitions.filter((t) => t === "smoothed").length;
+  const heldCount = metrics.transitions.filter((t) => t === "held").length;
+  const transitionNote = `transitions: smoothed=${smoothedCount}, held=${heldCount}, steady=${metrics.count - smoothedCount - heldCount}`;
+  const voiceFit = clamp(Math.round(score), 1, 5);
+
+  return {
+    adjustRate,
+    adjustPitch,
+    adjustVolume,
+    score,
+    notes,
+    intentTarget,
+    intensityTarget,
+    transitionNote,
+    voiceFit
+  };
 }
 
 function getProsodyPath(job) {
@@ -222,6 +259,10 @@ function enrichStyle(styleName) {
       adjustRate: adj.adjustRate,
       adjustPitch: adj.adjustPitch,
       adjustVolume: adj.adjustVolume,
+      intent_target: adj.intentTarget,
+      intensity_target: Number(adj.intensityTarget.toFixed(3)),
+      transition_note: adj.transitionNote,
+      voice_fit: adj.voiceFit,
       mode: String(job.mode || "humanize"),
       style: styleName,
       styleKey: styleName,

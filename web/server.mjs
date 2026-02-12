@@ -19,6 +19,7 @@ import {
   readProfileFile
 } from "../lib/profile-store.mjs";
 import { trainProfileFromFeedback } from "../lib/profile-trainer.mjs";
+import { getExpressionDefaultStyle } from "../lib/expression-defaults.mjs";
 
 dotenv.config({ quiet: true });
 
@@ -45,7 +46,10 @@ const DEFAULTS = {
   volume: process.env.TTS_VOLUME || "0%",
   humanize: String(process.env.TTS_HUMANIZE || "false").toLowerCase() === "true",
   humanizeIntensity: Number(process.env.TTS_HUMANIZE_INTENSITY || "0.45"),
-  style: process.env.TTS_STYLE || "natural"
+  style: process.env.TTS_STYLE || getExpressionDefaultStyle("natural"),
+  speechStyle: process.env.TTS_SPEECH_STYLE || "auto",
+  voiceCharacter: String(process.env.TTS_VOICE_CHARACTER || "true").toLowerCase() === "true",
+  voiceTone: process.env.TTS_VOICE_TONE || "auto"
 };
 
 const jobs = new Map();
@@ -163,7 +167,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     defaults: {
       ...DEFAULTS,
-      style: active.profile.defaultStyle || DEFAULTS.style
+      style: DEFAULTS.style || active.profile.defaultStyle
     },
     activeProfile: active.file
   });
@@ -213,6 +217,9 @@ function enqueueJob({
   volume,
   humanize,
   style,
+  speechStyle,
+  voiceCharacter,
+  voiceTone,
   humanizeIntensity,
   outputName,
   profileFileOverride = null,
@@ -241,7 +248,11 @@ function enqueueJob({
   const vPitch = String(pitch || parsed.meta.PITCH || DEFAULTS.pitch);
   const vVolume = String(volume || parsed.meta.VOLUME || DEFAULTS.volume);
   const vHumanize = parseBool(humanize, DEFAULTS.humanize);
-  const vStyle = String(style || DEFAULTS.style || "natural");
+  const styleCandidate = String(style || "").trim();
+  const vStyle = styleCandidate || DEFAULTS.style || getExpressionDefaultStyle("natural");
+  const vSpeechStyle = String(speechStyle || DEFAULTS.speechStyle || "auto").trim() || "auto";
+  const vVoiceCharacter = parseBool(voiceCharacter, DEFAULTS.voiceCharacter);
+  const vVoiceTone = String(voiceTone || DEFAULTS.voiceTone || "auto").trim() || "auto";
   const humanizeIntensityRaw = Number(humanizeIntensity ?? DEFAULTS.humanizeIntensity);
   const humanizeStrength = Number.isFinite(humanizeIntensityRaw)
     ? Math.max(0, Math.min(1, humanizeIntensityRaw))
@@ -265,6 +276,9 @@ function enqueueJob({
     style: vStyle,
     humanize: vHumanize,
     humanizeIntensity: humanizeStrength,
+    speechStyle: vSpeechStyle,
+    voiceCharacter: vVoiceCharacter,
+    voiceTone: vVoiceTone,
     profileFileOverride,
     source,
     error: null,
@@ -274,7 +288,7 @@ function enqueueJob({
     jobs.get(jobId),
     "info",
     vHumanize
-      ? `queued with voice=${vVoice}, humanize=true, style=${vStyle}, source=${source}, ignored_by_humanize(rate=${vRate}, pitch=${vPitch}, volume=${vVolume})`
+      ? `queued with voice=${vVoice}, humanize=true, style=${vStyle}, speech_style=${vSpeechStyle}, voice_tone=${vVoiceTone}, source=${source}, ignored_by_humanize(rate=${vRate}, pitch=${vPitch}, volume=${vVolume})`
       : `queued with voice=${vVoice}, humanize=false, rate=${vRate}, pitch=${vPitch}, volume=${vVolume}, style=${vStyle}, source=${source}`
   );
   cleanupJobsIfNeeded();
@@ -298,8 +312,11 @@ function enqueueJob({
           cacheDir: CACHE_DIR,
           humanizeIntensity: humanizeStrength,
           style: vStyle,
+          speechStyle: vSpeechStyle,
           useMlPolicy: USE_ML_POLICY,
-          profileFile: profileFileOverride
+          profileFile: profileFileOverride,
+          voiceCharacter: vVoiceCharacter,
+          voiceTone: vVoiceTone
         });
         addEvent(job, "info", `humanize segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`);
         appendNdjson(TRAINING_JOBS_FILE, {
@@ -384,6 +401,9 @@ app.post("/api/jobs", async (req, res) => {
     volume: req.body?.volume,
     humanize: req.body?.humanize,
     style: req.body?.style,
+    speechStyle: req.body?.speechStyle ?? req.body?.speech_style,
+    voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character,
+    voiceTone: req.body?.voiceTone ?? req.body?.voice_tone,
     humanizeIntensity: req.body?.humanizeIntensity,
     outputName: req.body?.outputName,
     source: "manual"
@@ -411,9 +431,12 @@ app.post("/api/training/jobs", async (req, res) => {
     rawText: benchmark,
     voice: req.body?.voice,
     humanize: true,
-    style: req.body?.style || "natural",
+    style: req.body?.style || DEFAULTS.style,
+    speechStyle: req.body?.speechStyle ?? req.body?.speech_style ?? DEFAULTS.speechStyle,
+    voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character ?? DEFAULTS.voiceCharacter,
+    voiceTone: req.body?.voiceTone ?? req.body?.voice_tone ?? DEFAULTS.voiceTone,
     humanizeIntensity: req.body?.humanizeIntensity ?? DEFAULTS.humanizeIntensity,
-    outputName: req.body?.outputName || `training_${req.body?.style || "natural"}`,
+    outputName: req.body?.outputName || `training_${req.body?.style || DEFAULTS.style}`,
     profileFileOverride: profileFile,
     source: "training_benchmark"
   });
@@ -456,6 +479,16 @@ app.post("/api/jobs/:jobId/feedback", (req, res) => {
   const adjustRate = Number(req.body?.adjustRate ?? 0);
   const adjustPitch = Number(req.body?.adjustPitch ?? 0);
   const adjustVolume = Number(req.body?.adjustVolume ?? 0);
+  const intentTargetRaw = String(req.body?.intent_target ?? req.body?.intentTarget ?? "").trim().toLowerCase();
+  const intensityTargetRaw = Number(req.body?.intensity_target ?? req.body?.intensityTarget);
+  const transitionNote = String(req.body?.transition_note ?? req.body?.transitionNote || "").trim();
+  const voiceFitRaw = Number(req.body?.voice_fit ?? req.body?.voiceFit);
+  const intentTarget = intentTargetRaw || null;
+  const intensityTarget =
+    Number.isFinite(intensityTargetRaw) && intensityTargetRaw >= 0 && intensityTargetRaw <= 1
+      ? intensityTargetRaw
+      : null;
+  const voiceFit = Number.isFinite(voiceFitRaw) && voiceFitRaw >= 1 && voiceFitRaw <= 5 ? voiceFitRaw : null;
   const payload = {
     at: new Date().toISOString(),
     jobId: job.id,
@@ -464,6 +497,10 @@ app.post("/api/jobs/:jobId/feedback", (req, res) => {
     adjustRate: Number.isFinite(adjustRate) ? adjustRate : 0,
     adjustPitch: Number.isFinite(adjustPitch) ? adjustPitch : 0,
     adjustVolume: Number.isFinite(adjustVolume) ? adjustVolume : 0,
+    intent_target: intentTarget,
+    intensity_target: intensityTarget,
+    transition_note: transitionNote,
+    voice_fit: voiceFit,
     mode: job.humanize ? "humanize" : "normal",
     style: job.style || null,
     humanizeIntensity: job.humanizeIntensity ?? null,

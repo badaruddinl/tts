@@ -23,6 +23,21 @@ Humanize mode (automatic per-segment rate/pitch/volume variation + prosody data)
 npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --humanize-intensity 0.55
 ```
 
+Voice character controls (enabled by default in humanize mode):
+
+```powershell
+npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --voice-character true --voice-tone auto --speech-style auto
+```
+
+Disable if you want raw output without voice character shaping:
+
+```powershell
+npm run tts -- --input text.txt --output result_raw.mp3 --humanize true --voice-character false
+```
+
+Tone options (works for both `Ardi` and `Gadis`): `auto`, `deep`, `bright`, `clear`, `soft`, `off`  
+Speech style options: `auto`, `narrative`, `relaxed`, `assertive`, `dramatic`, `emotional`
+
 Auto-expressive is enabled by default (for example, plain "hai" can be rendered warmer/more expressive based on context).  
 Disable it for fully neutral output:
 
@@ -35,6 +50,9 @@ Choose a style profile:
 ```powershell
 npm run tts -- --input text.txt --output mystery.mp3 --humanize true --style misteri
 ```
+
+If `--style` is omitted, runtime now uses selected expression default from:
+- `config/expression/defaults.json`
 
 Optional per-phrase intent override directly in text:
 
@@ -71,6 +89,11 @@ Notes:
 - Training data is also grouped per style in `data/training/styles/<style>/feedback.ndjson` and `jobs.ndjson`.
 - Auto-train is enabled by default: once feedback is submitted, a new profile can be created and auto-applied (`TTS_AUTO_TRAIN=true`).
 - Feedback also supports `Adjust Rate/Pitch/Volume` for ML policy training.
+- Feedback schema supports advanced labels:
+  - `intent_target`
+  - `intensity_target`
+  - `transition_note`
+  - `voice_fit`
 
 ## 4) Offline profile training
 

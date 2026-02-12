@@ -6,6 +6,7 @@ import {
   synthesizeToMp3,
   synthesizeHumanizedToMp3
 } from "../lib/tts-core.mjs";
+import { getExpressionDefaultStyle } from "../lib/expression-defaults.mjs";
 
 dotenv.config({ quiet: true });
 
@@ -39,7 +40,9 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
-    console.log("Usage: npm run tts -- --input text.txt --output season1.mp3 [--humanize true --style misteri]");
+    console.log(
+      "Usage: npm run tts -- --input text.txt --output season1.mp3 [--humanize true --style misteri --speech-style auto --voice-tone auto --voice-character true]"
+    );
     process.exit(0);
   }
 
@@ -62,12 +65,25 @@ async function main() {
   const volume = String(args.volume || parsed.meta.VOLUME || DEFAULTS.volume);
   const humanize = String(args.humanize || "").toLowerCase() === "true" || args.humanize === true;
   const humanizeIntensity = Number(args["humanize-intensity"] ?? process.env.TTS_HUMANIZE_INTENSITY ?? 0.45);
-  const style = args.style ? String(args.style) : null;
+  const style = args.style ? String(args.style) : getExpressionDefaultStyle(process.env.TTS_STYLE || "natural");
   const useMlPolicy =
     String(args["ml-policy"] ?? process.env.TTS_ML_POLICY ?? "true").toLowerCase() === "true";
   const autoExpressive =
     String(args["auto-expressive"] ?? process.env.TTS_AUTO_EXPRESSIVE ?? "true").toLowerCase() ===
     "true";
+  const speechStyle = String(args["speech-style"] ?? process.env.TTS_SPEECH_STYLE ?? "auto");
+  const voiceCharacter =
+    String(args["voice-character"] ?? process.env.TTS_VOICE_CHARACTER ?? "true").toLowerCase() ===
+    "true";
+  const legacyArdiHeavy =
+    String(args["ardi-heavy"] ?? process.env.TTS_ARDI_HEAVY ?? "").toLowerCase().trim();
+  let voiceTone = String(args["voice-tone"] ?? process.env.TTS_VOICE_TONE ?? "auto");
+  if (legacyArdiHeavy === "true" && (!args["voice-tone"] || String(args["voice-tone"]).trim() === "")) {
+    voiceTone = "deep";
+  }
+  if (legacyArdiHeavy === "false" && (!args["voice-tone"] || String(args["voice-tone"]).trim() === "")) {
+    voiceTone = "off";
+  }
 
   if (humanize) {
     const res = await synthesizeHumanizedToMp3({
@@ -80,8 +96,11 @@ async function main() {
       cacheDir: path.resolve(process.cwd(), ".tts-cache"),
       humanizeIntensity,
       style,
+      speechStyle,
       useMlPolicy,
-      autoExpressive
+      autoExpressive,
+      voiceCharacter,
+      voiceTone
     });
     console.log(
       `Humanize done: audio=${path.basename(res.audioPath)}, prosody=${path.basename(res.prosodyPath)}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`
