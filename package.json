@@ -1,0 +1,19 @@
+{
+  "name": "storyteller",
+  "version": "1.0.0",
+  "description": "Simple Indonesian storytelling TTS workspace",
+  "main": "index.js",
+  "scripts": {
+    "tts": "node scripts/generate-tts.mjs",
+    "tts:voices": "edge-tts voice-list",
+    "web": "node web/server.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@andresaya/edge-tts": "^1.8.0",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1"
+  }
+}

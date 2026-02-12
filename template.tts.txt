@@ -1,0 +1,24 @@
+TITLE: Di Bawah Bayang Lingkaran Cahaya
+VOICE: id-ID-GadisNeural
+RATE: -8%
+PITCH: -2Hz
+VOLUME: 0%
+OUTPUT: season1.mp3
+---
+[SCENE: Intro]
+Bayangkan sebuah ruangan.
+Bukan ruangan yang besar, melainkan kamar sempit dengan dinding triplek biru muda.
+[PAUSE_MEDIUM]
+Di balik lingkaran cahaya itu, duduklah seorang gadis remaja. Namanya Windy.
+
+[SCENE: Transisi]
+Hari-hari Windy tidak lagi diisi rumus matematika.
+Pikirannya tersedot ke angka digital: Views. Likes. Shares.
+[PAUSE_SHORT]
+Dan kesombongan itu selalu menuntut tumbal.
+
+[SCENE: Ending]
+Kereta datang dengan gemuruh besi.
+Windy melangkah masuk, meninggalkan semuanya.
+[PAUSE_LONG]
+Musim kepolosan berakhir. Musim pembalasan dimulai.
