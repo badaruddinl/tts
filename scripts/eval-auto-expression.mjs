@@ -43,6 +43,7 @@ function main() {
   const input = path.resolve(String(args.input || "text_intent_test.txt"));
   const output = path.resolve(String(args.output || "outputs/auto_expression_eval.json"));
   const style = args.style ? String(args.style) : null;
+  const profileFile = args["profile-file"] ? String(args["profile-file"]) : null;
   const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
 
   if (!fs.existsSync(input)) {
@@ -57,6 +58,7 @@ function main() {
   const autoRun = previewAutoExpressionFromText({
     text: parsed.text,
     style,
+    profileFile,
     humanizeIntensity,
     autoExpressive: true,
     allowIntentOverride: false
@@ -64,6 +66,7 @@ function main() {
   const overrideRun = previewAutoExpressionFromText({
     text: parsed.text,
     style,
+    profileFile,
     humanizeIntensity,
     autoExpressive: true,
     allowIntentOverride: true
@@ -86,6 +89,7 @@ function main() {
   const report = {
     at: new Date().toISOString(),
     input: path.relative(process.cwd(), input),
+    profileFile: profileFile || "active",
     styleAuto: autoRun.styleName,
     styleOverride: overrideRun.styleName,
     segments: count,

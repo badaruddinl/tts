@@ -21,13 +21,23 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const apply = args.apply === true || String(args.apply || "").toLowerCase() === "true";
   const minFeedback = Number(args["min-feedback"] ?? 1);
-  const res = trainProfileFromFeedback({ apply, minFeedback });
+  const feedbackFile = String(args["feedback-file"] || "").trim();
+  const baseProfileFile = String(args["base-profile"] || "").trim();
+  const outputFile = String(args["output-file"] || "").trim();
+  const res = trainProfileFromFeedback({
+    apply,
+    minFeedback,
+    feedbackFile,
+    baseProfileFile,
+    outputFile
+  });
 
   if (res.status === "trained") {
     console.log(`Training complete: ${res.file}`);
     console.log(`From profile: ${res.from}`);
     console.log(`Feedback rows: ${res.feedbackRows}`);
     console.log(`Applied: ${res.applied}`);
+    console.log(`Feedback file: ${res.feedbackFile}`);
     return;
   }
 

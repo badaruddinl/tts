@@ -19,7 +19,7 @@ function parseArgs(argv) {
   return out;
 }
 
-function runEval({ inputPath, outputPath, style }) {
+function runEval({ inputPath, outputPath, style, profileFile }) {
   const args = [
     "scripts/eval-auto-expression.mjs",
     "--input",
@@ -28,6 +28,7 @@ function runEval({ inputPath, outputPath, style }) {
     outputPath
   ];
   if (style) args.push("--style", style);
+  if (profileFile) args.push("--profile-file", profileFile);
 
   const res = spawnSync(process.execPath, args, {
     cwd: process.cwd(),
@@ -49,6 +50,7 @@ function main() {
   const testsDir = path.resolve(String(args.dir || "tests/expressions"));
   const reportDir = path.resolve(String(args.outdir || "outputs/eval_suite"));
   const style = String(args.style || "tegang").trim();
+  const profileFile = String(args["profile-file"] || "").trim();
   const maxAutoDelta = Number(args["max-auto-delta"] ?? 9.8);
   const maxOverrideDelta = Number(args["max-override-delta"] ?? 10.2);
   const minAvgOverrideSegments = Number(args["min-avg-override-segments"] ?? 0.8);
@@ -73,7 +75,7 @@ function main() {
   for (const file of files) {
     const inputPath = path.join(testsDir, file);
     const outPath = path.join(reportDir, `${file.replace(/\.txt$/i, "")}.json`);
-    runEval({ inputPath, outputPath: outPath, style });
+    runEval({ inputPath, outputPath: outPath, style, profileFile });
     const report = JSON.parse(fs.readFileSync(outPath, "utf8"));
     rows.push({
       file,
@@ -89,6 +91,7 @@ function main() {
     at: new Date().toISOString(),
     dir: path.relative(process.cwd(), testsDir),
     style,
+    profileFile: profileFile || "active",
     caseCount: rows.length,
     metrics: {
       avgSegments: Number(safeAvg(rows.map((r) => r.segments)).toFixed(3)),
