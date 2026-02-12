@@ -41,6 +41,7 @@ function main() {
   const minFeedback = Number(args["min-feedback"] ?? 1);
   const styles = String(args.styles || "").trim();
   const runBenchmark = String(args.benchmark ?? "true").toLowerCase() === "true";
+  const runSchemaMigrate = String(args["schema-migrate"] ?? "true").toLowerCase() === "true";
   const runExpressionEval = String(args["expression-eval"] ?? "true").toLowerCase() === "true";
   const expressionStrict = String(args["expression-strict"] ?? "false").toLowerCase() === "true";
   const expressionDir = String(args["expression-dir"] || "tests/expressions");
@@ -48,7 +49,14 @@ function main() {
     args["expression-select-styles"] || "tegang,natural,sinematik,narator_tegas,melankolis"
   );
 
+  const runVoiceEval = String(args["voice-eval"] ?? "true").toLowerCase() === "true";
+  const voiceStrict = String(args["voice-strict"] ?? "false").toLowerCase() === "true";
+  const voiceEvalDir = String(args["voice-eval-dir"] || "tests/voice");
+
   console.log("self_train:start");
+  if (runSchemaMigrate) {
+    runStep("schema_migrate", ["scripts/migrate-feedback-schema.mjs", "--drop-legacy", "true"]);
+  }
   runStep("dedupe", ["scripts/dedupe-training-data.mjs"]);
   runStep("style_detail", ["scripts/enrich-style-feedback.mjs"]);
   runStep("profile", ["scripts/train-profile.mjs", "--apply", "true", "--min-feedback", String(minFeedback)]);
@@ -94,6 +102,15 @@ function main() {
       "--styles",
       expressionSelectStyles
     ]);
+  }
+
+  if (runVoiceEval) {
+    const voiceExitCodes = voiceStrict ? [0] : [0, 2];
+    runStep(
+      "voice_suite",
+      ["scripts/eval-voice-character-suite.mjs", "--dir", voiceEvalDir],
+      { allowedExitCodes: voiceExitCodes }
+    );
   }
 
   console.log("self_train:done");

@@ -14,10 +14,12 @@
     "train:style-detail": "node scripts/enrich-style-feedback.mjs",
     "train:benchmark-all": "node scripts/generate-style-benchmarks.mjs",
     "train:dedupe": "node scripts/dedupe-training-data.mjs",
+    "train:migrate-schema": "node scripts/migrate-feedback-schema.mjs",
     "train:self": "node scripts/self-train.mjs",
     "eval:expression": "node scripts/eval-auto-expression.mjs",
     "eval:expression-suite": "node scripts/eval-expression-suite.mjs",
     "eval:expression-select": "node scripts/select-expression-default.mjs",
+    "eval:voice-suite": "node scripts/eval-voice-character-suite.mjs",
     "pack:export": "node scripts/export-training-pack.mjs",
     "pack:import": "node scripts/import-training-pack.mjs"
   },

@@ -160,6 +160,8 @@ Optional expression flags:
 - `--expression-eval false` to skip expression suite + default selection
 - `--expression-strict true` to make quality gate failure stop the pipeline
 - `--expression-dir tests/expressions` to use a custom expression test directory
+- `--voice-eval false` to skip voice character suite
+- `--voice-strict true` to make voice suite gate failure stop the pipeline
 
 ## 7) Auto vs Tag Override evaluation
 
@@ -197,7 +199,19 @@ npm run eval:expression-select -- --dir tests/expressions --styles tegang,natura
 Selection output:
 - `config/expression/defaults.json`
 
-## 8) Host migration (Export/Import pack)
+## 8) Voice Character Suite
+
+Run dedicated validation for `speech_style` and `voice_tone` behavior:
+
+```powershell
+npm run eval:voice-suite -- --dir tests/voice --style tegang
+```
+
+Outputs:
+- `outputs/voice_eval_suite/summary.json`
+- `outputs/voice_eval_suite/summary.md`
+
+## 9) Host migration (Export/Import pack)
 
 Export full training state into one zip:
 
@@ -220,7 +234,7 @@ npm run pack:import -- --file backups/training-pack-YYYYMMDD-HHMMSS.zip
 Import automatically creates backup of previous state in:
 - `backups/pre-import-<timestamp>/`
 
-## 9) Use template format (recommended)
+## 10) Use template format (recommended)
 
 Use `template.tts.txt` as a pattern:
 
@@ -236,7 +250,7 @@ Render example:
 npm run tts -- --input template.tts.txt
 ```
 
-## 10) Voice list
+## 11) Voice list
 
 ```powershell
 npm run tts:voices
