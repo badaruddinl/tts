@@ -37,6 +37,12 @@ h1 {
   color: var(--muted);
 }
 
+.hintSmall {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 label {
   display: block;
   margin: 10px 0 8px;
@@ -65,6 +71,19 @@ textarea {
   gap: 10px;
 }
 
+input[type="checkbox"] {
+  width: auto;
+  margin-left: 8px;
+  transform: scale(1.1);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+}
+
 .valueTag {
   display: inline-block;
   margin-top: 6px;
@@ -72,8 +91,35 @@ textarea {
   color: #b4c6de;
 }
 
+.miniNote {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8fa6c6;
+}
+
 .actions {
   margin-top: 16px;
+}
+
+.tabRow {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+
+.tabBtn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #0f1724;
+  color: var(--text);
+}
+
+.tabBtn.active {
+  background: var(--accent);
+  color: #04140f;
+  border-color: transparent;
 }
 
 button {
@@ -111,6 +157,11 @@ a {
   text-decoration: none;
 }
 
+audio {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .logs {
   margin-top: 10px;
   padding: 10px;
@@ -121,4 +172,12 @@ a {
   white-space: pre-wrap;
   color: #bed0e6;
   background: #0a101a;
+}
+
+.feedbackBox {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1521;
 }

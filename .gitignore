@@ -6,11 +6,17 @@ node_modules/
 
 .tts-cache/
 outputs/
+.tmp/
+backups/
+models/
+data/training/
 
 *.mp3
 *.wav
 *.m4a
 *.ogg
+*.prosody.json
+*.zip
 
 npm-debug.log*
 yarn-debug.log*

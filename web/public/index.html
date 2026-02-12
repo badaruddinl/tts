@@ -11,6 +11,12 @@
       <h1>TTS Local Studio</h1>
       <p class="hint">Tempel naskah, klik generate, lalu tunggu status selesai.</p>
 
+      <div class="tabRow">
+        <button id="tabNormal" class="tabBtn active" type="button">Normal</button>
+        <button id="tabTraining" class="tabBtn" type="button">Training</button>
+      </div>
+
+      <section id="panelNormal">
       <label for="text">Text</label>
       <textarea id="text" placeholder="Paste script here..."></textarea>
 
@@ -18,31 +24,103 @@
         <label>Voice
           <select id="voice"></select>
         </label>
+        <label>Style
+          <select id="style"></select>
+        </label>
         <label>Rate
+          <span class="miniNote">(tempo bicara: `+` lebih cepat, `-` lebih lambat)</span>
           <input id="rate" type="range" min="-50" max="50" step="1" />
           <span id="rateValue" class="valueTag">0%</span>
         </label>
         <label>Pitch
+          <span class="miniNote">(nada suara: `+` lebih tinggi, `-` lebih rendah)</span>
           <input id="pitch" type="range" min="-50" max="50" step="1" />
           <span id="pitchValue" class="valueTag">0Hz</span>
         </label>
         <label>Volume
+          <span class="miniNote">(keras suara: `+` lebih keras, `-` lebih pelan)</span>
           <input id="volume" type="range" min="-50" max="50" step="1" />
           <span id="volumeValue" class="valueTag">0%</span>
         </label>
         <label>Output Name
           <input id="outputName" type="text" placeholder="episode_01" />
         </label>
+        <label class="toggleRow">Humanize
+          <input id="humanize" type="checkbox" />
+        </label>
+        <label>Humanize Intensity
+          <input id="humanizeIntensity" type="range" min="0" max="1" step="0.05" />
+          <span id="humanizeIntensityValue" class="valueTag">0.45</span>
+        </label>
       </div>
 
       <div class="actions">
         <button id="generateBtn" type="button">Generate Audio</button>
       </div>
+      </section>
+
+      <section id="panelTraining" hidden>
+        <p class="hint">Training mode pakai benchmark text internal, tanpa input text manual.</p>
+        <div class="grid">
+          <label>Profile
+            <select id="trainingProfile"></select>
+          </label>
+          <label>Style
+            <select id="trainingStyle"></select>
+          </label>
+          <label>Voice
+            <select id="trainingVoice"></select>
+          </label>
+          <label>Humanize Intensity
+            <input id="trainingIntensity" type="range" min="0" max="1" step="0.05" />
+            <span id="trainingIntensityValue" class="valueTag">0.45</span>
+          </label>
+          <label>Output Name
+            <input id="trainingOutputName" type="text" placeholder="benchmark_style_profile" />
+          </label>
+        </div>
+        <div class="actions">
+          <button id="runTrainingBtn" type="button">Run Training Benchmark</button>
+        </div>
+        <div id="feedbackBox" class="feedbackBox">
+          <label>Feedback Score
+            <select id="feedbackScore">
+              <option value="5">5 - Sangat bagus</option>
+              <option value="4">4 - Bagus</option>
+              <option value="3">3 - Cukup</option>
+              <option value="2">2 - Kurang</option>
+              <option value="1">1 - Buruk</option>
+            </select>
+          </label>
+          <label>Catatan Feedback
+            <input id="feedbackNotes" type="text" placeholder="contoh: kurang dramatis di akhir" />
+          </label>
+          <label>Adjust Rate
+            <span class="miniNote">(feedback tempo segmen)</span>
+            <input id="adjustRate" type="range" min="-10" max="10" step="1" value="0" />
+            <span id="adjustRateValue" class="valueTag">0</span>
+          </label>
+          <label>Adjust Pitch
+            <span class="miniNote">(feedback tinggi-rendah nada)</span>
+            <input id="adjustPitch" type="range" min="-10" max="10" step="1" value="0" />
+            <span id="adjustPitchValue" class="valueTag">0</span>
+          </label>
+          <label>Adjust Volume
+            <span class="miniNote">(feedback keras-pelan suara)</span>
+            <input id="adjustVolume" type="range" min="-10" max="10" step="1" value="0" />
+            <span id="adjustVolumeValue" class="valueTag">0</span>
+          </label>
+          <button id="feedbackBtn" type="button" disabled>Kirim Feedback</button>
+        </div>
+      </section>
 
       <section class="statusBox">
         <div id="status">Status: idle</div>
         <div id="job"></div>
+        <div id="profileInfo" class="hintSmall"></div>
+        <audio id="audioPreview" controls hidden></audio>
         <a id="download" href="#" hidden>Download MP3</a>
+        <a id="downloadProsody" href="#" hidden>Download Prosody JSON</a>
         <pre id="logs" class="logs"></pre>
       </section>
     </main>
