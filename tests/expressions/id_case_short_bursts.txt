@@ -1,0 +1,6 @@
+Lari!
+Cepat!
+Jangan lihat belakang!
+Hei...
+Tarik napas.
+Tenang [intent=tenang:0.92].

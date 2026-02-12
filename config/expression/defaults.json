@@ -1,0 +1,85 @@
+{
+  "updatedAt": "2026-02-12T13:06:15.717Z",
+  "source": {
+    "testsDir": "tests\\expressions",
+    "candidateStyles": [
+      "tegang",
+      "natural",
+      "sinematik",
+      "narator_tegas",
+      "melankolis"
+    ]
+  },
+  "selected": {
+    "style": "melankolis",
+    "score": 4.08945,
+    "gate": "pass"
+  },
+  "ranking": [
+    {
+      "style": "melankolis",
+      "score": 4.08945,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 6.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1,
+        "avgAutoTransitionDelta": 4.401,
+        "avgOverrideTransitionDelta": 4.562
+      },
+      "summaryFile": "outputs\\eval_select\\melankolis\\summary.json"
+    },
+    {
+      "style": "narator_tegas",
+      "score": 4.72405,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 6.8,
+        "avgChangedIntentSegments": 0.2,
+        "avgOverrideIntentSegments": 1,
+        "avgAutoTransitionDelta": 5.176,
+        "avgOverrideTransitionDelta": 5.259
+      },
+      "summaryFile": "outputs\\eval_select\\narator_tegas\\summary.json"
+    },
+    {
+      "style": "sinematik",
+      "score": 5.6007,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 6.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1,
+        "avgAutoTransitionDelta": 6.104,
+        "avgOverrideTransitionDelta": 6.226
+      },
+      "summaryFile": "outputs\\eval_select\\sinematik\\summary.json"
+    },
+    {
+      "style": "tegang",
+      "score": 7.5357,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 6.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1,
+        "avgAutoTransitionDelta": 8.254,
+        "avgOverrideTransitionDelta": 8.376
+      },
+      "summaryFile": "outputs\\eval_select\\tegang\\summary.json"
+    },
+    {
+      "style": "natural",
+      "score": 13.18475,
+      "gate": "fail",
+      "metrics": {
+        "avgSegments": 6.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1,
+        "avgAutoTransitionDelta": 10.651,
+        "avgOverrideTransitionDelta": 10.758
+      },
+      "summaryFile": "outputs\\eval_select\\natural\\summary.json"
+    }
+  ]
+}

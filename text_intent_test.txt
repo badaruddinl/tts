@@ -1,1 +1,7 @@
-Hai.
+Hi.
+We finally reached that old house, and I was genuinely excited.
+But when the door opened by itself, our steps immediately slowed down.
+Why does this hallway feel so cold?
+Wait... that sound is back again!
+I am okay, take a slow breath first [intent=tenang:0.9].
+Listen carefully, do not move yet [intent=tegas:0.85].

@@ -1,0 +1,5 @@
+Hei, fokus ke saya sekarang.
+Jangan panik, dengarkan instruksi ini baik-baik.
+Apa kamu dengar suara di belakang pintu itu?
+Tunggu... jangan buka dulu!
+Tarik napas pelan, kita tenang dulu [intent=tenang:0.9].

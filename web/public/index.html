@@ -9,7 +9,7 @@
   <body>
     <main class="container">
       <h1>TTS Local Studio</h1>
-      <p class="hint">Tempel naskah, klik generate, lalu tunggu status selesai.</p>
+      <p class="hint">Paste your script, click generate, then wait for completion status.</p>
 
       <div class="tabRow">
         <button id="tabNormal" class="tabBtn active" type="button">Normal</button>
@@ -28,17 +28,17 @@
           <select id="style"></select>
         </label>
         <label>Rate
-          <span class="miniNote">(tempo bicara: `+` lebih cepat, `-` lebih lambat)</span>
+          <span class="miniNote">(speaking speed: `+` faster, `-` slower)</span>
           <input id="rate" type="range" min="-50" max="50" step="1" />
           <span id="rateValue" class="valueTag">0%</span>
         </label>
         <label>Pitch
-          <span class="miniNote">(nada suara: `+` lebih tinggi, `-` lebih rendah)</span>
+          <span class="miniNote">(voice tone: `+` higher, `-` lower)</span>
           <input id="pitch" type="range" min="-50" max="50" step="1" />
           <span id="pitchValue" class="valueTag">0Hz</span>
         </label>
         <label>Volume
-          <span class="miniNote">(keras suara: `+` lebih keras, `-` lebih pelan)</span>
+          <span class="miniNote">(loudness: `+` louder, `-` softer)</span>
           <input id="volume" type="range" min="-50" max="50" step="1" />
           <span id="volumeValue" class="valueTag">0%</span>
         </label>
@@ -60,7 +60,7 @@
       </section>
 
       <section id="panelTraining" hidden>
-        <p class="hint">Training mode pakai benchmark text internal, tanpa input text manual.</p>
+        <p class="hint">Training mode uses internal benchmark text, without manual text input.</p>
         <div class="grid">
           <label>Profile
             <select id="trainingProfile"></select>
@@ -85,32 +85,32 @@
         <div id="feedbackBox" class="feedbackBox">
           <label>Feedback Score
             <select id="feedbackScore">
-              <option value="5">5 - Sangat bagus</option>
-              <option value="4">4 - Bagus</option>
-              <option value="3">3 - Cukup</option>
-              <option value="2">2 - Kurang</option>
-              <option value="1">1 - Buruk</option>
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Good</option>
+              <option value="3">3 - Fair</option>
+              <option value="2">2 - Poor</option>
+              <option value="1">1 - Bad</option>
             </select>
           </label>
-          <label>Catatan Feedback
-            <input id="feedbackNotes" type="text" placeholder="contoh: kurang dramatis di akhir" />
+          <label>Feedback Notes
+            <input id="feedbackNotes" type="text" placeholder="example: less dramatic at the ending" />
           </label>
           <label>Adjust Rate
-            <span class="miniNote">(feedback tempo segmen)</span>
+            <span class="miniNote">(segment pace feedback)</span>
             <input id="adjustRate" type="range" min="-10" max="10" step="1" value="0" />
             <span id="adjustRateValue" class="valueTag">0</span>
           </label>
           <label>Adjust Pitch
-            <span class="miniNote">(feedback tinggi-rendah nada)</span>
+            <span class="miniNote">(pitch height feedback)</span>
             <input id="adjustPitch" type="range" min="-10" max="10" step="1" value="0" />
             <span id="adjustPitchValue" class="valueTag">0</span>
           </label>
           <label>Adjust Volume
-            <span class="miniNote">(feedback keras-pelan suara)</span>
+            <span class="miniNote">(loudness feedback)</span>
             <input id="adjustVolume" type="range" min="-10" max="10" step="1" value="0" />
             <span id="adjustVolumeValue" class="valueTag">0</span>
           </label>
-          <button id="feedbackBtn" type="button" disabled>Kirim Feedback</button>
+          <button id="feedbackBtn" type="button" disabled>Submit Feedback</button>
         </div>
       </section>
 

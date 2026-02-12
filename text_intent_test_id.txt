@@ -1,0 +1,4 @@
+Hai, akhirnya kita sampai.
+Tapi pintu itu terbuka sendiri dan aku merinding.
+Astaga! Jangan bergerak dulu [intent=tegas:0.85].
+Tarik napas pelan, kita tenang dulu [intent=calm:0.9].

@@ -358,7 +358,7 @@ humanizeEl.addEventListener("change", () => {
 
 trainingProfileEl.addEventListener("change", () => {
   reloadTrainingStyles(trainingProfileEl.value).catch(() => {
-    setStatus("failed to load training styles");
+      setStatus("failed to load training styles");
   });
 });
 
@@ -383,21 +383,21 @@ feedbackBtnEl.addEventListener("click", async () => {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "unknown error" }));
-      setStatus(`feedback gagal (${err.error || "unknown"})`);
+      setStatus(`feedback failed (${err.error || "unknown"})`);
       feedbackBtnEl.disabled = false;
       return;
     }
     const data = await res.json().catch(() => ({}));
     await refreshProfileState(data.activeProfile || "");
     if (data?.trainResult?.status === "trained") {
-      setStatus(`feedback tersimpan, profile naik ke ${data.trainResult.file}`);
+      setStatus(`feedback saved, profile upgraded to ${data.trainResult.file}`);
     } else if (data?.autoTrain) {
-      setStatus(`feedback tersimpan, auto-train: ${data?.trainResult?.reason || "ok"}`);
+      setStatus(`feedback saved, auto-train: ${data?.trainResult?.reason || "ok"}`);
     } else {
-      setStatus("feedback tersimpan");
+      setStatus("feedback saved");
     }
   } catch (err) {
-    setStatus(`feedback gagal (${err.message || String(err)})`);
+    setStatus(`feedback failed (${err.message || String(err)})`);
     feedbackBtnEl.disabled = false;
   }
 });
