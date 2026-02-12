@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-02-12T13:38:27.954Z",
+  "updatedAt": "2026-02-12T14:11:23.508Z",
   "source": {
     "testsDir": "tests\\expressions",
     "candidateStyles": [
@@ -12,33 +12,33 @@
   },
   "selected": {
     "style": "melankolis",
-    "score": 4.08945,
+    "score": 4.2329,
     "gate": "pass"
   },
   "ranking": [
     {
       "style": "melankolis",
-      "score": 4.08945,
+      "score": 4.2329,
       "gate": "pass",
       "metrics": {
         "avgSegments": 6.8,
         "avgChangedIntentSegments": 0.4,
         "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 4.401,
-        "avgOverrideTransitionDelta": 4.562
+        "avgAutoTransitionDelta": 4.561,
+        "avgOverrideTransitionDelta": 4.721
       },
       "summaryFile": "outputs\\eval_select\\melankolis\\summary.json"
     },
     {
       "style": "narator_tegas",
-      "score": 4.72405,
+      "score": 4.80595,
       "gate": "pass",
       "metrics": {
         "avgSegments": 6.8,
         "avgChangedIntentSegments": 0.2,
         "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 5.176,
-        "avgOverrideTransitionDelta": 5.259
+        "avgAutoTransitionDelta": 5.267,
+        "avgOverrideTransitionDelta": 5.35
       },
       "summaryFile": "outputs\\eval_select\\narator_tegas\\summary.json"
     },
