@@ -46,9 +46,27 @@ function evaluateModel(policy, samples) {
   const axisVolume = [];
   const axisAll = [];
 
+  const predictFromFeatures = (features) => {
+    if (policy?.modelType === "linear_py_v1") {
+      const weights = Array.isArray(policy?.model?.weights) ? policy.model.weights : [];
+      const bias = Array.isArray(policy?.model?.intercept) ? policy.model.intercept : [0, 0, 0];
+      const out = [Number(bias[0] || 0), Number(bias[1] || 0), Number(bias[2] || 0)];
+      const dim = Math.min(features.length, weights.length);
+      for (let i = 0; i < dim; i += 1) {
+        const row = Array.isArray(weights[i]) ? weights[i] : [0, 0, 0];
+        const x = Number(features[i] || 0);
+        out[0] += x * Number(row[0] || 0);
+        out[1] += x * Number(row[1] || 0);
+        out[2] += x * Number(row[2] || 0);
+      }
+      return out;
+    }
+    return policy.model.predict(features);
+  };
+
   for (const sample of samples) {
     const [tDr, tDp, tDv] = sample.target;
-    const pred = policy.model.predict(sample.features);
+    const pred = predictFromFeatures(sample.features);
     const [pDr, pDp, pDv] = Array.isArray(pred) ? pred : [0, 0, 0];
     const er = (Number(pDr) || 0) - (Number(tDr) || 0);
     const ep = (Number(pDp) || 0) - (Number(tDp) || 0);

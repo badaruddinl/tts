@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { spawnSync } from "child_process";
+import { evaluateAutoExpression } from "./eval-auto-expression.mjs";
 
 function parseArgs(argv) {
   const out = {};
@@ -20,24 +20,13 @@ function parseArgs(argv) {
 }
 
 function runEval({ inputPath, outputPath, style, profileFile }) {
-  const args = [
-    "scripts/eval-auto-expression.mjs",
-    "--input",
+  const report = evaluateAutoExpression({
     inputPath,
-    "--output",
-    outputPath
-  ];
-  if (style) args.push("--style", style);
-  if (profileFile) args.push("--profile-file", profileFile);
-
-  const res = spawnSync(process.execPath, args, {
-    cwd: process.cwd(),
-    stdio: "pipe",
-    encoding: "utf8"
+    style,
+    profileFile,
+    humanizeIntensity: 0.7
   });
-  if (res.status !== 0) {
-    throw new Error(`eval_failed file=${inputPath}\n${res.stderr || res.stdout}`);
-  }
+  fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
 }
 
 function safeAvg(items) {

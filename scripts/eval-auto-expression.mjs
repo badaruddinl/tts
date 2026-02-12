@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { pathToFileURL } from "url";
 import { parseInputFile, previewAutoExpressionFromText } from "../lib/tts-core.mjs";
 
 function parseArgs(argv) {
@@ -38,18 +39,14 @@ function transitionScore(segments) {
   return Number(avg(delta).toFixed(3));
 }
 
-function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const input = path.resolve(String(args.input || "text_intent_test.txt"));
-  const output = path.resolve(String(args.output || "outputs/auto_expression_eval.json"));
-  const style = args.style ? String(args.style) : null;
-  const profileFile = args["profile-file"] ? String(args["profile-file"]) : null;
-  const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
-
-  if (!fs.existsSync(input)) {
-    throw new Error(`Input file not found: ${input}`);
-  }
-
+export function evaluateAutoExpression({
+  inputPath,
+  style = null,
+  profileFile = null,
+  humanizeIntensity = 0.7
+}) {
+  const input = path.resolve(String(inputPath || "text_intent_test.txt"));
+  if (!fs.existsSync(input)) throw new Error(`Input file not found: ${input}`);
   const parsed = parseInputFile(input);
   if (!parsed.text) {
     throw new Error("Input text is empty after cleanup.");
@@ -115,6 +112,22 @@ function main() {
       transition: s.reason?.transition
     }))
   };
+  return report;
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const input = path.resolve(String(args.input || "text_intent_test.txt"));
+  const output = path.resolve(String(args.output || "outputs/auto_expression_eval.json"));
+  const style = args.style ? String(args.style) : null;
+  const profileFile = args["profile-file"] ? String(args["profile-file"]) : null;
+  const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
+  const report = evaluateAutoExpression({
+    inputPath: input,
+    style,
+    profileFile,
+    humanizeIntensity
+  });
 
   const parent = path.dirname(output);
   if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
@@ -125,4 +138,7 @@ function main() {
   );
 }
 
-main();
+const directRunHref = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : "";
+if (import.meta.url === directRunHref) {
+  main();
+}

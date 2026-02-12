@@ -30,8 +30,42 @@ function runStep(name, args, opts = {}) {
   }
 }
 
+function detectPythonCmd() {
+  const choices = ["python", "py"];
+  for (const cmd of choices) {
+    const res = spawnSync(cmd, ["--version"], {
+      cwd: process.cwd(),
+      stdio: "pipe",
+      shell: false
+    });
+    if (Number(res.status) === 0) return cmd;
+  }
+  return null;
+}
+
+function runPythonStep(name, args, pythonCmd, opts = {}) {
+  const allowedExitCodes = Array.isArray(opts.allowedExitCodes) ? opts.allowedExitCodes : [0];
+  const cmd = pythonCmd || detectPythonCmd();
+  if (!cmd) {
+    throw new Error(`step_failed=${name} reason=python_not_found`);
+  }
+  const res = spawnSync(cmd, args, {
+    cwd: process.cwd(),
+    stdio: "inherit",
+    shell: false
+  });
+  if (!allowedExitCodes.includes(Number(res.status))) {
+    throw new Error(`step_failed=${name} exit=${res.status ?? "unknown"}`);
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  const trainer = String(args.trainer || "js").toLowerCase().trim();
+  if (trainer !== "js" && trainer !== "py") {
+    throw new Error(`invalid_trainer=${trainer} expected=js|py`);
+  }
+  const pythonCmd = null;
   const intensityRaw = Number(args.intensity ?? 1);
   const intensity = Number.isFinite(intensityRaw) ? Math.max(0, Math.min(1, intensityRaw)) : 1;
   const voices = String(args.voices || "id-ID-ArdiNeural,id-ID-GadisNeural")
@@ -59,8 +93,17 @@ function main() {
   }
   runStep("dedupe", ["scripts/dedupe-training-data.mjs"]);
   runStep("style_detail", ["scripts/enrich-style-feedback.mjs"]);
-  runStep("profile", ["scripts/train-profile.mjs", "--apply", "true", "--min-feedback", String(minFeedback)]);
-  runStep("ml_all", ["scripts/train-ml-policy.mjs"]);
+  if (trainer === "py") {
+    runPythonStep(
+      "profile_py",
+      ["scripts_py/train_profile.py", "--apply", "true", "--min-feedback", String(minFeedback)],
+      pythonCmd
+    );
+    runPythonStep("ml_all_py", ["scripts_py/train_ml_policy.py"], pythonCmd);
+  } else {
+    runStep("profile", ["scripts/train-profile.mjs", "--apply", "true", "--min-feedback", String(minFeedback)]);
+    runStep("ml_all", ["scripts/train-ml-policy.mjs"]);
+  }
 
   if (styles) {
     const picked = styles
@@ -68,7 +111,21 @@ function main() {
       .map((s) => s.trim())
       .filter(Boolean);
     for (const style of picked) {
-      runStep(`ml_${style}`, ["scripts/train-ml-policy.mjs", "--style", style]);
+      if (trainer === "py") {
+        runPythonStep(
+          `ml_${style}_py`,
+          [
+            "scripts_py/train_ml_policy.py",
+            "--style",
+            style,
+            "--feedback-file",
+            `data/training/styles/${style}/feedback.ndjson`
+          ],
+          pythonCmd
+        );
+      } else {
+        runStep(`ml_${style}`, ["scripts/train-ml-policy.mjs", "--style", style]);
+      }
     }
   }
 
