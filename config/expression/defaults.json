@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-02-12T14:11:23.508Z",
+  "updatedAt": "2026-02-12T16:24:36.118Z",
   "source": {
     "testsDir": "tests\\expressions",
     "candidateStyles": [
@@ -11,73 +11,73 @@
     ]
   },
   "selected": {
-    "style": "melankolis",
-    "score": 4.2329,
+    "style": "narator_tegas",
+    "score": 3.89755,
     "gate": "pass"
   },
   "ranking": [
     {
-      "style": "melankolis",
-      "score": 4.2329,
-      "gate": "pass",
-      "metrics": {
-        "avgSegments": 6.8,
-        "avgChangedIntentSegments": 0.4,
-        "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 4.561,
-        "avgOverrideTransitionDelta": 4.721
-      },
-      "summaryFile": "outputs\\eval_select\\melankolis\\summary.json"
-    },
-    {
       "style": "narator_tegas",
-      "score": 4.80595,
+      "score": 3.89755,
       "gate": "pass",
       "metrics": {
-        "avgSegments": 6.8,
+        "avgSegments": 8.8,
         "avgChangedIntentSegments": 0.2,
-        "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 5.267,
-        "avgOverrideTransitionDelta": 5.35
+        "avgOverrideIntentSegments": 1.2,
+        "avgAutoTransitionDelta": 4.309,
+        "avgOverrideTransitionDelta": 4.308
       },
       "summaryFile": "outputs\\eval_select\\narator_tegas\\summary.json"
     },
     {
-      "style": "sinematik",
-      "score": 5.6007,
+      "style": "melankolis",
+      "score": 4.49845,
       "gate": "pass",
       "metrics": {
-        "avgSegments": 6.8,
+        "avgSegments": 8.8,
         "avgChangedIntentSegments": 0.4,
-        "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 6.104,
-        "avgOverrideTransitionDelta": 6.226
+        "avgOverrideIntentSegments": 1.2,
+        "avgAutoTransitionDelta": 4.897,
+        "avgOverrideTransitionDelta": 4.99
+      },
+      "summaryFile": "outputs\\eval_select\\melankolis\\summary.json"
+    },
+    {
+      "style": "sinematik",
+      "score": 4.92625,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 8.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1.2,
+        "avgAutoTransitionDelta": 5.42,
+        "avgOverrideTransitionDelta": 5.435
       },
       "summaryFile": "outputs\\eval_select\\sinematik\\summary.json"
     },
     {
       "style": "tegang",
-      "score": 7.5357,
+      "score": 5.1179,
       "gate": "pass",
       "metrics": {
-        "avgSegments": 6.8,
+        "avgSegments": 8.8,
         "avgChangedIntentSegments": 0.4,
-        "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 8.254,
-        "avgOverrideTransitionDelta": 8.376
+        "avgOverrideIntentSegments": 1.2,
+        "avgAutoTransitionDelta": 5.636,
+        "avgOverrideTransitionDelta": 5.646
       },
       "summaryFile": "outputs\\eval_select\\tegang\\summary.json"
     },
     {
       "style": "natural",
-      "score": 13.18475,
-      "gate": "fail",
+      "score": 5.425,
+      "gate": "pass",
       "metrics": {
-        "avgSegments": 6.8,
+        "avgSegments": 8.8,
         "avgChangedIntentSegments": 0.4,
-        "avgOverrideIntentSegments": 1,
-        "avgAutoTransitionDelta": 10.651,
-        "avgOverrideTransitionDelta": 10.758
+        "avgOverrideIntentSegments": 1.2,
+        "avgAutoTransitionDelta": 5.965,
+        "avgOverrideTransitionDelta": 5.995
       },
       "summaryFile": "outputs\\eval_select\\natural\\summary.json"
     }
