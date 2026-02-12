@@ -65,6 +65,9 @@ async function main() {
   const style = args.style ? String(args.style) : null;
   const useMlPolicy =
     String(args["ml-policy"] ?? process.env.TTS_ML_POLICY ?? "true").toLowerCase() === "true";
+  const autoExpressive =
+    String(args["auto-expressive"] ?? process.env.TTS_AUTO_EXPRESSIVE ?? "true").toLowerCase() ===
+    "true";
 
   if (humanize) {
     const res = await synthesizeHumanizedToMp3({
@@ -77,7 +80,8 @@ async function main() {
       cacheDir: path.resolve(process.cwd(), ".tts-cache"),
       humanizeIntensity,
       style,
-      useMlPolicy
+      useMlPolicy,
+      autoExpressive
     });
     console.log(
       `Humanize done: audio=${path.basename(res.audioPath)}, prosody=${path.basename(res.prosodyPath)}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`

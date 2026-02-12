@@ -23,6 +23,13 @@ Mode humanize (variasi rate/pitch/volume otomatis per segmen + data prosody):
 npm run tts -- --input text.txt --output hasil_humanize.mp3 --humanize true --humanize-intensity 0.55
 ```
 
+Auto-expressive aktif default (mis. "hai" bisa otomatis dibaca lebih hangat/ceria sesuai konteks).
+Matikan jika ingin netral penuh:
+
+```powershell
+npm run tts -- --input text.txt --output hasil_netral.mp3 --humanize true --auto-expressive false
+```
+
 Pilih style profile:
 
 ```powershell
