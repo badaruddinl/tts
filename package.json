@@ -22,10 +22,12 @@
     "train:self:py": "node scripts/self-train.mjs --trainer py",
     "eval:expression": "node scripts/eval-auto-expression.mjs",
     "eval:expression-suite": "node scripts/eval-expression-suite.mjs",
+    "eval:hybrid-ab": "node scripts/eval-hybrid-ab.mjs",
     "eval:expression-select": "node scripts/select-expression-default.mjs",
     "eval:voice-suite": "node scripts/eval-voice-character-suite.mjs",
     "train:ml:service": "node scripts/train-ml-policy-service.mjs",
     "bench:trainers": "node scripts/benchmark-trainers.mjs",
+    "bench:trainers:seq": "powershell -ExecutionPolicy Bypass -File scripts/benchmark-trainers.ps1",
     "pack:export": "node scripts/export-training-pack.mjs",
     "pack:import": "node scripts/import-training-pack.mjs"
   },

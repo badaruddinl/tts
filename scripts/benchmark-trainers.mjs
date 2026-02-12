@@ -27,8 +27,12 @@ function ensureDir(dirPath) {
 function detectPythonCmd() {
   const picks = ["python", "py"];
   for (const cmd of picks) {
-    const res = spawnSync(cmd, ["--version"], { cwd: process.cwd(), stdio: "pipe", shell: false });
-    if (Number(res.status) === 0) return cmd;
+    try {
+      const res = spawnSync(cmd, ["--version"], { cwd: process.cwd(), stdio: "pipe", shell: false });
+      if (Number(res.status) === 0) return cmd;
+    } catch {
+      // ignore and try next candidate
+    }
   }
   return null;
 }
@@ -43,14 +47,41 @@ function summarizeMs(items) {
   };
 }
 
+function summarizeMode(mode, items, error = "") {
+  if (!items.length) {
+    return {
+      mode,
+      ok: false,
+      avgMs: null,
+      minMs: null,
+      maxMs: null,
+      error: error || "no_samples"
+    };
+  }
+  const s = summarizeMs(items);
+  return {
+    mode,
+    ok: true,
+    avgMs: s.avgMs,
+    minMs: s.minMs,
+    maxMs: s.maxMs,
+    error: null
+  };
+}
+
 function runSpawn(cmd, args) {
   const t0 = process.hrtime.bigint();
-  const res = spawnSync(cmd, args, {
-    cwd: process.cwd(),
-    stdio: "pipe",
-    encoding: "utf8",
-    shell: false
-  });
+  let res;
+  try {
+    res = spawnSync(cmd, args, {
+      cwd: process.cwd(),
+      stdio: "pipe",
+      encoding: "utf8",
+      shell: false
+    });
+  } catch (err) {
+    throw new Error(err?.message || `spawn_throw cmd=${cmd}`);
+  }
   const elapsedMs = Number(process.hrtime.bigint() - t0) / 1e6;
   if (Number(res.status) !== 0) {
     throw new Error((res.stderr || res.stdout || "").trim() || `spawn_failed cmd=${cmd}`);
@@ -146,7 +177,13 @@ function writeReport(reportFile, payload) {
     "|---|---:|---:|---:|"
   ];
   for (const row of payload.results) {
-    md.push(`| ${row.mode} | ${row.avgMs} | ${row.minMs} | ${row.maxMs} |`);
+    if (row.ok) {
+      md.push(`| ${row.mode} | ${row.avgMs} | ${row.minMs} | ${row.maxMs} |`);
+    } else {
+      md.push(`| ${row.mode} | fail | fail | fail |`);
+      md.push(``);
+      md.push(`Error ${row.mode}: ${row.error}`);
+    }
   }
   fs.writeFileSync(reportFile.replace(/\.json$/i, ".md"), `${md.join("\n")}\n`, "utf8");
 }
@@ -160,71 +197,95 @@ async function main() {
   ensureDir(outDir);
 
   const pyCmd = detectPythonCmd();
-  if (!pyCmd) throw new Error("python_not_found");
 
-  const modeTimes = {
-    js_spawn: [],
-    py_spawn: [],
-    js_service: [],
-    py_service: []
-  };
+  const modeTimes = new Map([
+    ["js_spawn", []],
+    ["py_spawn", []],
+    ["js_service", []],
+    ["py_service", []]
+  ]);
+  const modeErrors = new Map();
 
-  for (let i = 1; i <= runs; i += 1) {
-    const r = runSpawn("node", [
-      "scripts/train-ml-policy.mjs",
-      "--feedback-file",
-      feedbackFile,
-      "--output-model",
-      makeModelPath(outDir, "js_spawn", i)
-    ]);
-    modeTimes.js_spawn.push(r.elapsedMs);
+  try {
+    for (let i = 1; i <= runs; i += 1) {
+      const r = runSpawn("node", [
+        "scripts/train-ml-policy.mjs",
+        "--feedback-file",
+        feedbackFile,
+        "--output-model",
+        makeModelPath(outDir, "js_spawn", i)
+      ]);
+      modeTimes.get("js_spawn").push(r.elapsedMs);
+    }
+  } catch (err) {
+    modeErrors.set("js_spawn", err?.message || String(err));
   }
 
-  for (let i = 1; i <= runs; i += 1) {
-    const r = runSpawn(pyCmd, [
-      "scripts_py/train_ml_policy.py",
-      "--feedback-file",
-      feedbackFile,
-      "--output-model",
-      makeModelPath(outDir, "py_spawn", i)
-    ]);
-    modeTimes.py_spawn.push(r.elapsedMs);
+  if (!pyCmd) {
+    modeErrors.set("py_spawn", "python_not_found");
+  } else {
+    try {
+      for (let i = 1; i <= runs; i += 1) {
+        const r = runSpawn(pyCmd, [
+          "scripts_py/train_ml_policy.py",
+          "--feedback-file",
+          feedbackFile,
+          "--output-model",
+          makeModelPath(outDir, "py_spawn", i)
+        ]);
+        modeTimes.get("py_spawn").push(r.elapsedMs);
+      }
+    } catch (err) {
+      modeErrors.set("py_spawn", err?.message || String(err));
+    }
   }
 
-  const jsService = startService("node", ["scripts/train-ml-policy-service.mjs"]);
-  await jsService.ready;
-  for (let i = 1; i <= runs; i += 1) {
-    const t0 = process.hrtime.bigint();
-    const msg = await jsService.send({
-      action: "train",
-      feedbackFile,
-      outputModel: makeModelPath(outDir, "js_service", i),
-      useCache: true
-    });
-    if (msg?.type === "error") throw new Error(msg.error || "js_service_error");
-    modeTimes.js_service.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  try {
+    const jsService = startService("node", ["scripts/train-ml-policy-service.mjs"]);
+    await jsService.ready;
+    for (let i = 1; i <= runs; i += 1) {
+      const t0 = process.hrtime.bigint();
+      const msg = await jsService.send({
+        action: "train",
+        feedbackFile,
+        outputModel: makeModelPath(outDir, "js_service", i),
+        useCache: true
+      });
+      if (msg?.type === "error") throw new Error(msg.error || "js_service_error");
+      modeTimes.get("js_service").push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    await jsService.shutdown();
+  } catch (err) {
+    modeErrors.set("js_service", err?.message || String(err));
   }
-  await jsService.shutdown();
 
-  const pyService = startService(pyCmd, ["scripts_py/train_ml_policy_service.py"]);
-  await pyService.ready;
-  for (let i = 1; i <= runs; i += 1) {
-    const t0 = process.hrtime.bigint();
-    const msg = await pyService.send({
-      action: "train",
-      feedbackFile,
-      outputModel: makeModelPath(outDir, "py_service", i),
-      useCache: true
-    });
-    if (msg?.type === "error") throw new Error(msg.error || "py_service_error");
-    modeTimes.py_service.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  if (!pyCmd) {
+    modeErrors.set("py_service", "python_not_found");
+  } else {
+    try {
+      const pyService = startService(pyCmd, ["-u", "scripts_py/train_ml_policy_service.py"]);
+      await pyService.ready;
+      for (let i = 1; i <= runs; i += 1) {
+        const t0 = process.hrtime.bigint();
+        const msg = await pyService.send({
+          action: "train",
+          feedbackFile,
+          outputModel: makeModelPath(outDir, "py_service", i),
+          useCache: true
+        });
+        if (msg?.type === "error") throw new Error(msg.error || "py_service_error");
+        modeTimes.get("py_service").push(Number(process.hrtime.bigint() - t0) / 1e6);
+      }
+      await pyService.shutdown();
+    } catch (err) {
+      modeErrors.set("py_service", err?.message || String(err));
+    }
   }
-  await pyService.shutdown();
 
-  const resultRows = Object.entries(modeTimes).map(([mode, items]) => ({
-    mode,
-    ...summarizeMs(items)
-  }));
+  const modeOrder = ["js_spawn", "py_spawn", "js_service", "py_service"];
+  const resultRows = modeOrder.map((mode) =>
+    summarizeMode(mode, modeTimes.get(mode) || [], modeErrors.get(mode) || "")
+  );
   const payload = {
     generatedAt: new Date().toISOString(),
     runs,
@@ -234,9 +295,13 @@ async function main() {
   writeReport(reportFile, payload);
   console.log(`benchmark_done report=${path.relative(process.cwd(), reportFile).replace(/\\/g, "/")}`);
   for (const row of resultRows) {
-    console.log(
-      `mode=${row.mode} avgMs=${row.avgMs.toFixed(3)} minMs=${row.minMs.toFixed(3)} maxMs=${row.maxMs.toFixed(3)}`
-    );
+    if (row.ok) {
+      console.log(
+        `mode=${row.mode} avgMs=${row.avgMs.toFixed(3)} minMs=${row.minMs.toFixed(3)} maxMs=${row.maxMs.toFixed(3)}`
+      );
+    } else {
+      console.log(`mode=${row.mode} failed error=${row.error}`);
+    }
   }
 }
 

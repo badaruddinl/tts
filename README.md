@@ -23,6 +23,13 @@ Humanize mode (automatic per-segment rate/pitch/volume variation + prosody data)
 npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --humanize-intensity 0.55
 ```
 
+Hybrid prosody mode (base per-segment + phrase override + important-word boost) is enabled by default.  
+Disable for A/B:
+
+```powershell
+npm run tts -- --input text.txt --output result_no_hybrid.mp3 --humanize true --hybrid-prosody false
+```
+
 Voice character controls (enabled by default in humanize mode):
 
 ```powershell
@@ -33,6 +40,21 @@ Disable if you want raw output without voice character shaping:
 
 ```powershell
 npm run tts -- --input text.txt --output result_raw.mp3 --humanize true --voice-character false
+```
+
+Backend selection (default stays `edge`):
+
+```powershell
+npm run tts -- --input text.txt --output result.mp3 --backend edge
+```
+
+`local-lite` backend is available as adapter mode:
+
+```powershell
+$env:TTS_BACKEND='local-lite'
+$env:TTS_LOCAL_LITE_CMD='piper'
+$env:TTS_LOCAL_LITE_MODEL='models\\id_model.onnx'
+npm run tts -- --input text.txt --output result_local_lite.mp3 --humanize true
 ```
 
 Tone options (works for both `Ardi` and `Gadis`): `auto`, `deep`, `bright`, `clear`, `soft`, `off`  
@@ -141,6 +163,12 @@ Run end-to-end training pipeline with no manual steps:
 npm run train:self
 ```
 
+Run with Python trainer backend for profile + ML policy steps:
+
+```powershell
+npm run train:self:py
+```
+
 Automatically runs:
 - Dedupe training data
 - Enrich detailed style feedback
@@ -149,6 +177,7 @@ Automatically runs:
 - Generate benchmark for 2 default voices (`Ardi` + `Gadis`)
 - Run expression quality suite (`tests/expressions`)
 - Auto-select expression default style and save to `config/expression/defaults.json`
+- Run hybrid prosody A/B suite (`hybrid off` vs `hybrid on`)
 
 Example options:
 
@@ -160,6 +189,10 @@ Optional expression flags:
 - `--expression-eval false` to skip expression suite + default selection
 - `--expression-strict true` to make quality gate failure stop the pipeline
 - `--expression-dir tests/expressions` to use a custom expression test directory
+- `--hybrid-eval false` to skip hybrid A/B suite
+- `--hybrid-strict true` to stop pipeline if hybrid A/B step fails
+- `--hybrid-eval-dir tests/expressions` to use custom hybrid test directory
+- `--hybrid-style tegang` to set style evaluated in hybrid A/B
 - `--voice-eval false` to skip voice character suite
 - `--voice-strict true` to make voice suite gate failure stop the pipeline
 
@@ -179,6 +212,16 @@ Run the multi-case Indonesian suite:
 ```powershell
 npm run eval:expression-suite -- --dir tests/expressions --style tegang
 ```
+
+Hybrid A/B runner (`hybrid-prosody off` vs `on`):
+
+```powershell
+npm run eval:hybrid-ab -- --dir tests/expressions --style tegang
+```
+
+A/B outputs:
+- `outputs/eval_hybrid_ab/summary.json`
+- `outputs/eval_hybrid_ab/summary.md`
 
 Suite outputs:
 - `outputs/eval_suite/summary.json`
@@ -211,7 +254,24 @@ Outputs:
 - `outputs/voice_eval_suite/summary.json`
 - `outputs/voice_eval_suite/summary.md`
 
-## 9) Host migration (Export/Import pack)
+## 9) Trainer benchmark (JS vs Python, spawn vs service)
+
+Run benchmark:
+
+```powershell
+npm run bench:trainers -- --runs 5 --feedback-file data/training/splits/ml/train.ndjson
+```
+
+Stable sequential runner (recommended on Windows hosts with strict job-object policy):
+
+```powershell
+npm run bench:trainers:seq -- -Runs 5 -FeedbackFile data/training/splits/ml/train.ndjson
+```
+
+Outputs:
+- `outputs/bench_trainers/report.json`
+- `outputs/bench_trainers/report.md`
+## 10) Host migration (Export/Import pack)
 
 Export full training state into one zip:
 
@@ -234,7 +294,7 @@ npm run pack:import -- --file backups/training-pack-YYYYMMDD-HHMMSS.zip
 Import automatically creates backup of previous state in:
 - `backups/pre-import-<timestamp>/`
 
-## 10) Use template format (recommended)
+## 11) Use template format (recommended)
 
 Use `template.tts.txt` as a pattern:
 
@@ -250,7 +310,7 @@ Render example:
 npm run tts -- --input template.tts.txt
 ```
 
-## 11) Voice list
+## 12) Voice list
 
 ```powershell
 npm run tts:voices

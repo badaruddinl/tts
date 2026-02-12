@@ -43,7 +43,8 @@ export function evaluateAutoExpression({
   inputPath,
   style = null,
   profileFile = null,
-  humanizeIntensity = 0.7
+  humanizeIntensity = 0.7,
+  hybridProsody = true
 }) {
   const input = path.resolve(String(inputPath || "text_intent_test.txt"));
   if (!fs.existsSync(input)) throw new Error(`Input file not found: ${input}`);
@@ -57,6 +58,7 @@ export function evaluateAutoExpression({
     style,
     profileFile,
     humanizeIntensity,
+    hybridProsody,
     autoExpressive: true,
     allowIntentOverride: false
   });
@@ -65,6 +67,7 @@ export function evaluateAutoExpression({
     style,
     profileFile,
     humanizeIntensity,
+    hybridProsody,
     autoExpressive: true,
     allowIntentOverride: true
   });
@@ -87,6 +90,7 @@ export function evaluateAutoExpression({
     at: new Date().toISOString(),
     input: path.relative(process.cwd(), input),
     profileFile: profileFile || "active",
+    hybridProsody: Boolean(hybridProsody),
     styleAuto: autoRun.styleName,
     styleOverride: overrideRun.styleName,
     segments: count,
@@ -122,11 +126,14 @@ function main() {
   const style = args.style ? String(args.style) : null;
   const profileFile = args["profile-file"] ? String(args["profile-file"]) : null;
   const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
+  const hybridProsody =
+    String(args["hybrid-prosody"] ?? "true").toLowerCase() === "true";
   const report = evaluateAutoExpression({
     inputPath: input,
     style,
     profileFile,
-    humanizeIntensity
+    humanizeIntensity,
+    hybridProsody
   });
 
   const parent = path.dirname(output);
@@ -134,7 +141,7 @@ function main() {
   fs.writeFileSync(output, JSON.stringify(report, null, 2), "utf8");
 
   console.log(
-    `eval_done file=${path.relative(process.cwd(), output)} segments=${count} changed=${changedIntent} tag_override=${overrideIntentCount}`
+    `eval_done file=${path.relative(process.cwd(), output)} segments=${report.segments} changed=${report.metrics.changedIntentSegments} tag_override=${report.metrics.overrideIntentSegments}`
   );
 }
 

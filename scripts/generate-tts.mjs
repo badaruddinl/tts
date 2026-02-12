@@ -60,6 +60,7 @@ async function main() {
 
   const output = String(args.output || parsed.meta.OUTPUT || DEFAULTS.output);
   const voice = String(args.voice || parsed.meta.VOICE || DEFAULTS.voice);
+  const backend = String(args.backend ?? process.env.TTS_BACKEND ?? "edge");
   const rate = String(args.rate || parsed.meta.RATE || DEFAULTS.rate);
   const pitch = String(args.pitch || parsed.meta.PITCH || DEFAULTS.pitch);
   const volume = String(args.volume || parsed.meta.VOLUME || DEFAULTS.volume);
@@ -72,6 +73,9 @@ async function main() {
     String(args["auto-expressive"] ?? process.env.TTS_AUTO_EXPRESSIVE ?? "true").toLowerCase() ===
     "true";
   const speechStyle = String(args["speech-style"] ?? process.env.TTS_SPEECH_STYLE ?? "auto");
+  const hybridProsody =
+    String(args["hybrid-prosody"] ?? process.env.TTS_HYBRID_PROSODY ?? "true").toLowerCase() ===
+    "true";
   const voiceCharacter =
     String(args["voice-character"] ?? process.env.TTS_VOICE_CHARACTER ?? "true").toLowerCase() ===
     "true";
@@ -100,7 +104,9 @@ async function main() {
       useMlPolicy,
       autoExpressive,
       voiceCharacter,
-      voiceTone
+      voiceTone,
+      hybridProsody,
+      backend
     });
     console.log(
       `Humanize done: audio=${path.basename(res.audioPath)}, prosody=${path.basename(res.prosodyPath)}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`
@@ -113,7 +119,8 @@ async function main() {
       rate,
       pitch,
       volume,
-      cacheDir: path.resolve(process.cwd(), ".tts-cache")
+      cacheDir: path.resolve(process.cwd(), ".tts-cache"),
+      backend
     });
   }
 }

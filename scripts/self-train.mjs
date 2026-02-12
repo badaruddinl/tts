@@ -79,6 +79,11 @@ function main() {
   const runExpressionEval = String(args["expression-eval"] ?? "true").toLowerCase() === "true";
   const expressionStrict = String(args["expression-strict"] ?? "false").toLowerCase() === "true";
   const expressionDir = String(args["expression-dir"] || "tests/expressions");
+  const runHybridEval = String(args["hybrid-eval"] ?? "true").toLowerCase() === "true";
+  const hybridStrict = String(args["hybrid-strict"] ?? "false").toLowerCase() === "true";
+  const hybridEvalDir = String(args["hybrid-eval-dir"] || "tests/expressions");
+  const hybridStyle = String(args["hybrid-style"] || "tegang");
+  const hybridOutDir = String(args["hybrid-outdir"] || "outputs/eval_hybrid_ab_self");
   const expressionSelectStyles = String(
     args["expression-select-styles"] || "tegang,natural,sinematik,narator_tegas,melankolis"
   );
@@ -167,6 +172,23 @@ function main() {
       "voice_suite",
       ["scripts/eval-voice-character-suite.mjs", "--dir", voiceEvalDir],
       { allowedExitCodes: voiceExitCodes }
+    );
+  }
+
+  if (runHybridEval) {
+    const hybridExitCodes = hybridStrict ? [0] : [0, 2];
+    runStep(
+      "hybrid_ab",
+      [
+        "scripts/eval-hybrid-ab.mjs",
+        "--dir",
+        hybridEvalDir,
+        "--style",
+        hybridStyle,
+        "--outdir",
+        hybridOutDir
+      ],
+      { allowedExitCodes: hybridExitCodes }
     );
   }
 
