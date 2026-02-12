@@ -94,6 +94,29 @@
           <label>Voice
             <select id="trainingVoice"></select>
           </label>
+          <label>Speech Style
+            <select id="trainingSpeechStyle">
+              <option value="auto">auto</option>
+              <option value="narrative">narrative</option>
+              <option value="relaxed">relaxed</option>
+              <option value="assertive">assertive</option>
+              <option value="dramatic">dramatic</option>
+              <option value="emotional">emotional</option>
+            </select>
+          </label>
+          <label>Voice Tone
+            <select id="trainingVoiceTone">
+              <option value="auto">auto</option>
+              <option value="deep">deep</option>
+              <option value="bright">bright</option>
+              <option value="clear">clear</option>
+              <option value="soft">soft</option>
+              <option value="off">off</option>
+            </select>
+          </label>
+          <label class="toggleRow">Voice Character
+            <input id="trainingVoiceCharacter" type="checkbox" checked />
+          </label>
           <label>Humanize Intensity
             <input id="trainingIntensity" type="range" min="0" max="1" step="0.05" />
             <span id="trainingIntensityValue" class="valueTag">0.45</span>

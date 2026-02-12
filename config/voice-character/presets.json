@@ -63,6 +63,66 @@
         "amplitudeMul": { "rate": 1.02, "pitch": 1.04, "volume": 1.03 },
         "post": { "enabled": true, "lowDb": 0.2, "highDb": 1.0, "compRatio": 2.0 }
       }
+    },
+    "misteri": {
+      "ardi": {
+        "base": { "rate": -1.7, "pitch": -1.8, "volume": 0.5 },
+        "amplitudeMul": { "rate": 0.92, "pitch": 0.88, "volume": 1.03 },
+        "post": { "enabled": true, "lowDb": 3.1, "highDb": -2.0, "compRatio": 2.6 }
+      },
+      "gadis": {
+        "base": { "rate": -0.4, "pitch": 0.2, "volume": 0.3 },
+        "amplitudeMul": { "rate": 0.97, "pitch": 0.95, "volume": 1.02 },
+        "post": { "enabled": true, "lowDb": 0.3, "highDb": 0.7, "compRatio": 2.1 }
+      }
+    },
+    "horor_intim": {
+      "ardi": {
+        "base": { "rate": -2.0, "pitch": -2.0, "volume": 0.7 },
+        "amplitudeMul": { "rate": 0.9, "pitch": 0.86, "volume": 1.06 },
+        "post": { "enabled": true, "lowDb": 3.4, "highDb": -2.2, "compRatio": 2.8 }
+      },
+      "gadis": {
+        "base": { "rate": -0.6, "pitch": 0.1, "volume": 0.4 },
+        "amplitudeMul": { "rate": 0.95, "pitch": 0.93, "volume": 1.04 },
+        "post": { "enabled": true, "lowDb": 0.5, "highDb": 0.6, "compRatio": 2.2 }
+      }
+    },
+    "pasrah": {
+      "ardi": {
+        "base": { "rate": -1.6, "pitch": -1.7, "volume": 0.4 },
+        "amplitudeMul": { "rate": 0.93, "pitch": 0.89, "volume": 1.01 },
+        "post": { "enabled": true, "lowDb": 2.5, "highDb": -1.7, "compRatio": 2.4 }
+      },
+      "gadis": {
+        "base": { "rate": -0.3, "pitch": 0.5, "volume": 0.2 },
+        "amplitudeMul": { "rate": 0.99, "pitch": 1.01, "volume": 1.0 },
+        "post": { "enabled": true, "lowDb": 0.1, "highDb": 0.8, "compRatio": 2.0 }
+      }
+    },
+    "dramatis": {
+      "ardi": {
+        "base": { "rate": -0.5, "pitch": -0.8, "volume": 0.8 },
+        "amplitudeMul": { "rate": 1.06, "pitch": 1.04, "volume": 1.08 },
+        "post": { "enabled": true, "lowDb": 2.4, "highDb": -1.2, "compRatio": 2.2 }
+      },
+      "gadis": {
+        "base": { "rate": 0.4, "pitch": 1.0, "volume": 0.6 },
+        "amplitudeMul": { "rate": 1.08, "pitch": 1.12, "volume": 1.09 },
+        "post": { "enabled": true, "lowDb": 0.2, "highDb": 1.2, "compRatio": 2.0 }
+      }
+    },
+    "datar": {
+      "ardi": {
+        "base": { "rate": -0.4, "pitch": -0.6, "volume": 0.3 },
+        "amplitudeMul": { "rate": 0.85, "pitch": 0.84, "volume": 0.9 },
+        "post": { "enabled": true, "lowDb": 1.8, "highDb": -1.0, "compRatio": 1.9 }
+      },
+      "gadis": {
+        "base": { "rate": 0.0, "pitch": 0.3, "volume": 0.2 },
+        "amplitudeMul": { "rate": 0.88, "pitch": 0.9, "volume": 0.92 },
+        "post": { "enabled": true, "lowDb": 0.1, "highDb": 0.5, "compRatio": 1.8 }
+      }
     }
   }
 }

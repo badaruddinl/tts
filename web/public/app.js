@@ -45,6 +45,9 @@ const voiceFitValueEl = document.getElementById("voiceFitValue");
 const trainingProfileEl = document.getElementById("trainingProfile");
 const trainingStyleEl = document.getElementById("trainingStyle");
 const trainingVoiceEl = document.getElementById("trainingVoice");
+const trainingSpeechStyleEl = document.getElementById("trainingSpeechStyle");
+const trainingVoiceToneEl = document.getElementById("trainingVoiceTone");
+const trainingVoiceCharacterEl = document.getElementById("trainingVoiceCharacter");
 const trainingIntensityEl = document.getElementById("trainingIntensity");
 const trainingIntensityValueEl = document.getElementById("trainingIntensityValue");
 const trainingOutputNameEl = document.getElementById("trainingOutputName");
@@ -171,6 +174,9 @@ async function loadDefaults() {
   voiceCharacterEl.checked = Boolean(cfgData.defaults.voiceCharacter ?? true);
   trainingStyleEl.innerHTML = styles.map((s) => `<option value="${s}">${s}</option>`).join("");
   trainingStyleEl.value = styleEl.value;
+  trainingSpeechStyleEl.value = speechStyleEl.value || "auto";
+  trainingVoiceToneEl.value = voiceToneEl.value || "auto";
+  trainingVoiceCharacterEl.checked = voiceCharacterEl.checked;
   const profiles = Array.isArray(profileData.profiles) ? profileData.profiles : [];
   trainingProfileEl.innerHTML = profiles.map((p) => `<option value="${p}">${p}</option>`).join("");
   trainingProfileEl.value = profileData.activeProfile || "";
@@ -300,6 +306,9 @@ async function submitTrainingJob() {
       profileFile: trainingProfileEl.value,
       style: trainingStyleEl.value,
       voice: trainingVoiceEl.value,
+      speech_style: trainingSpeechStyleEl.value,
+      voice_character: trainingVoiceCharacterEl.checked,
+      voice_tone: trainingVoiceToneEl.value,
       humanizeIntensity: Number(trainingIntensityEl.value),
       outputName
     })
