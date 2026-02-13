@@ -1,0 +1,495 @@
+{
+  "createdAt": "2026-02-13T06:30:00.000Z",
+  "voice": "id-ID-GadisNeural",
+  "base": {
+    "rate": "0%",
+    "pitch": "0Hz",
+    "volume": "0%"
+  },
+  "style": "podcast-deep-dive",
+  "profileFile": "v57.json",
+  "humanizeIntensity": 1,
+  "hybridProsody": true,
+  "prosodyLimiter": {
+    "enabled": true,
+    "strength": 0.64
+  },
+  "backend": "edge",
+  "voiceCharacter": {
+    "key": "gadis",
+    "speechStyle": "auto",
+    "voiceTone": "auto",
+    "postApplied": true
+  },
+  "mlPolicy": {
+    "enabled": true,
+    "modelMeta": {
+      "version": "prosody-policy-v1",
+      "styleScope": "all",
+      "trainer": "python",
+      "backend": "pure_python"
+    }
+  },
+  "segments": [
+    {
+      "index": 1,
+      "text": "Oke, hari ini kita bakal bahas sesuatu yang... cukup intens ya. Di depan kita ada profil psikologis dari karakter bernama Windy. Dan kita mau coba bedah, gimana sih seseorang bisa hancur, terus kayak terlahir lagi jadi pribadi yang sama sekali beda. Dan semua ini berawalnya dari kamarnya sendiri.",
+      "role": "Host Wanita",
+      "rate": 0.5,
+      "pitch": 0.2,
+      "volume": 14.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Casual, Opening",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 0.1, "dp": 0.2, "dv": 0.0 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 14.5
+      }
+    },
+    {
+      "index": 2,
+      "text": "Kamar sempit berdinding triplek biru muda. Itu kan detail pertamanya. Dari semua deskripsi itu, menurutmu apa sih yang paling bikin... sesak buat dia?",
+      "role": "Host Pria",
+      "rate": -5.2,
+      "pitch": -4.8,
+      "volume": 12.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Deep, Serious",
+        "voiceCharacter": "ardi",
+        "ending": "question"
+      },
+      "ml": { "dr": 2.1, "dp": 3.5, "dv": -1.0 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -5.0,
+        "volume": 12.0
+      }
+    },
+    {
+      "index": 3,
+      "text": "Kombinasinya sih. Ruangannya sendiri kan udah sempit, itu udah kayak penjara mental. Tapi dinding biru muda itu loh... warna yang harusnya menenangkan tapi di sana malah jadi... jadi mencekik gitu.",
+      "role": "Host Wanita",
+      "rate": 0.0,
+      "pitch": 0.0,
+      "volume": 13.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Empathetic",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 0.5, "dp": 0.2, "dv": -0.5 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 13.5
+      }
+    },
+    {
+      "index": 4,
+      "text": "Betul, betul. Dan yang paling ironis, satu-satunya mataharinya, itu bukan cahaya alami. Tapi Ring Light. Cahaya dingin yang nerangin mukanya buat konten, tapi... ya itu justru menggelapkan dunianya yang asli.",
+      "role": "Host Pria",
+      "rate": -5.5,
+      "pitch": -5.1,
+      "volume": 11.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Philosophical, Dark",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.5, "dp": 4.1, "dv": -2.0 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -5.0,
+        "volume": 11.5
+      }
+    },
+    {
+      "index": 5,
+      "text": "Hmm, menohok juga. Tapi aku kepikiran, jangan-jangan Ring Light itu satu-satunya alat dia buat merasa berkuasa di dalam penjaranya itu? Dia gak bisa ngubah kamarnya, tapi dia bisa ngontrol citranya di layar.",
+      "role": "Host Wanita",
+      "rate": 2.1,
+      "pitch": 0.5,
+      "volume": 14.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Curious, Slightly Faster",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": -1.0, "dp": 0.0, "dv": 1.0 },
+      "final": {
+        "rate": 2.0,
+        "pitch": 0.0,
+        "volume": 14.0
+      }
+    },
+    {
+      "index": 6,
+      "text": "Oh, iya juga ya. Tapi ironisnya, ya itu... alat buat merasa kuat itu yang justru menghancurkan dia. Itu bukan cahaya yang menghangatkan, kan? Itu sorotan yang menuntut. Dia itu bukan disinari, tapi diawasi.",
+      "role": "Host Pria",
+      "rate": -8.4,
+      "pitch": -5.2,
+      "volume": 10.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Heavy Realization",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 3.8, "dp": 4.5, "dv": -3.0 },
+      "final": {
+        "rate": -8.0,
+        "pitch": -5.0,
+        "volume": 10.5
+      }
+    },
+    {
+      "index": 7,
+      "text": "Diawasi... oleh audiens yang gak kelihatan. Gila sih tekanannya. Dan itu bener-bener mengubah cara otaknya bekerja. Di sini disebutin, Windy itu dulunya anak yang... uh, logis banget. Hidupnya kayak rumus matematika.",
+      "role": "Host Wanita",
+      "rate": 0.2,
+      "pitch": 0.1,
+      "volume": 13.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Concerned",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 0.0, "dp": 0.0, "dv": -1.0 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 13.0
+      }
+    },
+    {
+      "index": 8,
+      "text": "Teratur ya? Ada masalah, cari solusi, simpel.",
+      "role": "Host Pria",
+      "rate": -5.1,
+      "pitch": -2.2,
+      "volume": 13.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Firm, Short",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.0, "dp": 1.5, "dv": 0.0 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 13.0
+      }
+    },
+    {
+      "index": 9,
+      "text": "Iya. Tapi sekarang... logika itu mati.",
+      "role": "Host Wanita",
+      "rate": -5.3,
+      "pitch": -2.1,
+      "volume": 11.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Sad, Slow",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.2, "dp": 1.8, "dv": -2.0 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 11.0
+      }
+    },
+    {
+      "index": 10,
+      "text": "Nah, itu dia. Logikanya diganti sama sesuatu yang jauh lebih kejam dan... eh, gak bisa diprediksi.",
+      "role": "Host Pria",
+      "rate": -5.2,
+      "pitch": -5.1,
+      "volume": 12.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Intense",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.5, "dp": 4.0, "dv": -0.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -5.0,
+        "volume": 12.0
+      }
+    },
+    {
+      "index": 11,
+      "text": "Algoritma?",
+      "role": "Host Wanita",
+      "rate": 0.0,
+      "pitch": 0.0,
+      "volume": 13.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Questioning",
+        "voiceCharacter": "gadis",
+        "ending": "question"
+      },
+      "ml": { "dr": 0.0, "dp": 0.0, "dv": 0.0 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 13.0
+      }
+    },
+    {
+      "index": 12,
+      "text": "Dan algoritma ini punya Tuhannya sendiri. Yang di sini disebut Tritunggal Digital. Views, Likes, sama Shares.",
+      "role": "Host Pria",
+      "rate": -5.1,
+      "pitch": -2.0,
+      "volume": 12.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Cynical",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.1, "dp": 1.9, "dv": -0.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 12.5
+      }
+    },
+    {
+      "index": 13,
+      "text": "Dan itu bukan lagi sekadar angka kan?",
+      "role": "Host Wanita",
+      "rate": 0.5,
+      "pitch": 0.2,
+      "volume": 13.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Confirmation",
+        "voiceCharacter": "gadis",
+        "ending": "question"
+      },
+      "ml": { "dr": 0.0, "dp": 0.0, "dv": 0.0 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 13.5
+      }
+    },
+    {
+      "index": 14,
+      "text": "Bukan. Itu udah jadi mata uang harga diri dia. Harga dirinya jadi bergantung penuh sama validasi luar yang naik turun tiap detik. Pas validasi itu ilang, ya hancur juga dia.",
+      "role": "Host Pria",
+      "rate": -2.2,
+      "pitch": -5.1,
+      "volume": 12.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Explanation",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 1.1, "dp": 4.2, "dv": -1.0 },
+      "final": {
+        "rate": -2.0,
+        "pitch": -5.0,
+        "volume": 12.0
+      }
+    },
+    {
+      "index": 15,
+      "text": "Dia sadar, dunia nyata gak lagi menghargai kepintarannya. Dunia maya itu... minta tumbal. Dan tumbalnya, ya kepolosannya dia. Poin itu sih yang bikin merinding.",
+      "role": "Host Wanita",
+      "rate": -5.5,
+      "pitch": 0.0,
+      "volume": 10.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Chills, Slow",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.6, "dp": 0.5, "dv": -2.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": 0.0,
+        "volume": 10.5
+      }
+    },
+    {
+      "index": 16,
+      "text": "Tepat. Menjadi pintar itu gak ngasih dia apa-apa di dunia itu. Jadi dia menukar logikanya demi perhatian. Transaksi yang tragis banget. Dan semua kemarahan yang numpuk itu... meledak di satu momen.",
+      "role": "Host Pria",
+      "rate": -5.3,
+      "pitch": -5.2,
+      "volume": 11.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Narrative, Heavy",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 2.4, "dp": 4.1, "dv": -1.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -5.0,
+        "volume": 11.0
+      }
+    },
+    {
+      "index": 17,
+      "text": "Adegan di stasiun kereta? Jujur aku baca bagian itu... wah, itu kerasa banget dinginnya. Gemuruh kereta api yang datang itu digambarkan bukan sebagai suara biasa, tapi kayak... manifestasi kemarahan Windy yang udah di puncak.",
+      "role": "Host Wanita",
+      "rate": 0.0,
+      "pitch": 0.0,
+      "volume": 12.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Emotional description",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 0.0, "dp": 0.0, "dv": -0.5 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 12.5
+      }
+    },
+    {
+      "index": 18,
+      "text": "Iya, iya. Waktu dia melangkah masuk ke gerbong... rasanya kita lagi nonton sebuah kematian.",
+      "role": "Host Pria",
+      "rate": -10.5,
+      "pitch": -8.2,
+      "volume": 9.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Very Heavy, Slowest point",
+        "voiceCharacter": "ardi",
+        "ending": "period"
+      },
+      "ml": { "dr": 4.8, "dp": 7.5, "dv": -4.0 },
+      "final": {
+        "rate": -10.0,
+        "pitch": -8.0,
+        "volume": 9.5
+      }
+    },
+    {
+      "index": 19,
+      "text": "Itu turning point yang ekstrim banget. Ini bukan sekadar perubahan karakter, ini... uh, psychological death and rebirth. Kematian dan kelahiran kembali secara psikologis. Dia secara sadar membunuh Windy si gadis polos. Sumbernya bilang dengan jelas kan: 'Musim kepolosan berakhir, musim pembalasan dimulai'.",
+      "role": "Host Wanita",
+      "rate": 0.0,
+      "pitch": 0.0,
+      "volume": 12.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Analytical",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 0.2, "dp": 0.1, "dv": -0.8 },
+      "final": {
+        "rate": 0.0,
+        "pitch": 0.0,
+        "volume": 12.0
+      }
+    },
+    {
+      "index": 20,
+      "text": "Kalimat yang serem banget sih itu. Jadi ini udah bukan lagi soal nyari validasi atau likes?",
+      "role": "Host Pria",
+      "rate": -5.1,
+      "pitch": -2.0,
+      "volume": 11.5,
+      "reason": {
+        "style": "podcast",
+        "intent": "Questioning, Serious",
+        "voiceCharacter": "ardi",
+        "ending": "question"
+      },
+      "ml": { "dr": 2.2, "dp": 1.8, "dv": -1.0 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 11.5
+      }
+    },
+    {
+      "index": 21,
+      "text": "Bukan lagi. Tujuannya udah geser total. Bukan lagi pengen disukai, tapi pengen ditakuti. Bukan lagi nyari validasi, tapi nyari dominasi. Dia siap balas dendam sama sistem yang maksa dia jadi monster demi angka. Dia bukan lagi korban, dia memutuskan jadi ancaman.",
+      "role": "Host Wanita",
+      "rate": -2.2,
+      "pitch": 0.0,
+      "volume": 11.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Firm, Finality",
+        "voiceCharacter": "gadis",
+        "ending": "period"
+      },
+      "ml": { "dr": 1.0, "dp": 0.0, "dv": -1.5 },
+      "final": {
+        "rate": -2.0,
+        "pitch": 0.0,
+        "volume": 11.0
+      }
+    },
+    {
+      "index": 22,
+      "text": "Gila sih ngebayanginnya. Apapun yang bakal dia lakuin selanjutnya pasti bakal sangat terukur dan dingin. Mengingat dia aslinya cerdas banget kan?",
+      "role": "Host Pria",
+      "rate": -5.1,
+      "pitch": -2.1,
+      "volume": 11.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Fear/Respect",
+        "voiceCharacter": "ardi",
+        "ending": "question"
+      },
+      "ml": { "dr": 2.2, "dp": 1.8, "dv": -1.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 11.0
+      }
+    },
+    {
+      "index": 23,
+      "text": "Tepat sekali. Momen di kereta itu kayak sebuah proklamasi perang dari dia. Dan ini... ini ninggalin kita semua sama satu pertanyaan yang, jujur aja, agak mengganggu ya buat direnungkan. Setelah semua logika dihancurkan, dan diganti sama hasrat buat balas dendam... apa yang terjadi ketika orang yang sangat cerdas memutuskan buat pakai otaknya bukan untuk cari solusi... tapi untuk menciptakan kehancuran?",
+      "role": "Host Wanita",
+      "rate": -5.4,
+      "pitch": -2.0,
+      "volume": 10.0,
+      "reason": {
+        "style": "podcast",
+        "intent": "Deep Question, Closing",
+        "voiceCharacter": "gadis",
+        "ending": "question"
+      },
+      "ml": { "dr": 2.5, "dp": 1.9, "dv": -2.5 },
+      "final": {
+        "rate": -5.0,
+        "pitch": -2.0,
+        "volume": 10.0
+      }
+    }
+  ]
+}

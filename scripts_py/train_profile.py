@@ -40,6 +40,19 @@ def read_json(file_path):
         return json.load(f)
 
 
+def default_profile():
+    return {
+        "meta": {"id": "v1", "trainer": "python"},
+        "defaultStyle": "natural",
+        "styles": {
+            "natural": {
+                "base": {"rate": 0, "pitch": 0, "volume": 0},
+                "amplitude": {"rate": 5, "pitch": 2, "volume": 2},
+            }
+        },
+    }
+
+
 def resolve_feedback_rows(
     cwd,
     feedback_file,
@@ -333,7 +346,7 @@ def main():
         print(f"Training skipped: not_enough_feedback ({len(feedback_rows)})")
         return
 
-    base_profile = read_json(base_profile_path)
+    base_profile = read_json(base_profile_path) if os.path.exists(base_profile_path) else default_profile()
     trained = train_profile(base_profile, feedback_rows)
     before = json.dumps(base_profile, ensure_ascii=False, sort_keys=True)
     after = json.dumps(trained, ensure_ascii=False, sort_keys=True)

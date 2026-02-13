@@ -3,12 +3,7 @@ import path from "path";
 import { spawn } from "child_process";
 import express from "express";
 import dotenv from "dotenv";
-import {
-  cleanLine,
-  parseText,
-  synthesizeToMp3,
-  synthesizeHumanizedToMp3
-} from "../lib/tts-core.mjs";
+import { cleanLine, parseText } from "../lib/tts-core.mjs";
 import {
   loadActiveProfile,
   getStyleNames,
@@ -36,7 +31,19 @@ const TRAINING_FEEDBACK_FILE = path.join(TRAINING_DIR, "feedback.ndjson");
 const TRAINING_JOBS_FILE = path.join(TRAINING_DIR, "jobs.ndjson");
 const TRAINING_SQLITE_FILE = path.join(TRAINING_DIR, "training.db");
 const WRITE_NDJSON = String(process.env.TTS_NDJSON_TRAINING || "false").toLowerCase() === "true";
-const TRAINING_BENCHMARK_FILE = path.resolve(process.cwd(), "config", "training", "benchmark.txt");
+function resolveTrainingBenchmarkFile() {
+  const fromEnv = String(process.env.TTS_WEB_TRAINING_TEXT || "").trim();
+  if (fromEnv) {
+    return path.resolve(process.cwd(), fromEnv);
+  }
+  const sampleInput = path.resolve(process.cwd(), "sample", "sample_text_input.txt");
+  if (fs.existsSync(sampleInput)) {
+    return sampleInput;
+  }
+  return path.resolve(process.cwd(), "config", "training", "benchmark.txt");
+}
+
+const TRAINING_BENCHMARK_FILE = resolveTrainingBenchmarkFile();
 const AUTO_TRAIN = String(process.env.TTS_AUTO_TRAIN || "true").toLowerCase() === "true";
 const AUTO_TRAIN_MIN_FEEDBACK = Number(process.env.TTS_AUTO_TRAIN_MIN_FEEDBACK || "2");
 const USE_ML_POLICY = String(process.env.TTS_ML_POLICY || "true").toLowerCase() === "true";
@@ -205,6 +212,135 @@ function parseVoiceListOutput(text) {
     .filter((line) => line.startsWith("- "))
     .map((line) => line.slice(2).trim())
     .filter(Boolean);
+}
+
+function getPythonPath() {
+  return String(process.env.TTS_PYTHON_BIN || process.env.PYTHON || "python").trim() || "python";
+}
+
+async function runPythonTts(args) {
+  const py = getPythonPath();
+  return await new Promise((resolve, reject) => {
+    const child = spawn(py, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error((stderr || stdout || `python_tts_exit_${code}`).trim()));
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function synthesizeViaPython({
+  jobId,
+  text,
+  outputWithoutExt,
+  voice,
+  rate,
+  pitch,
+  volume,
+  humanize,
+  style,
+  autoExpressive,
+  speechStyle,
+  useMlPolicy,
+  profileFile,
+  voiceCharacter,
+  voiceTone,
+  segmentConcurrency,
+  hybridProsody,
+  prosodyLimiter,
+  prosodyLimiterStrength,
+  humanizeIntensity
+}) {
+  const scriptPath = path.resolve(process.cwd(), "scripts_py", "generate_tts.py");
+  const inputPath = path.join(CACHE_DIR, `job_input_${jobId}.txt`);
+  fs.writeFileSync(inputPath, `${String(text || "").trim()}\n`, "utf8");
+  const args = [
+    scriptPath,
+    "--runtime",
+    "py",
+    "--input",
+    inputPath,
+    "--output",
+    outputWithoutExt,
+    "--voice",
+    String(voice),
+    "--rate",
+    String(rate),
+    "--pitch",
+    String(pitch),
+    "--volume",
+    String(volume),
+    "--humanize",
+    humanize ? "true" : "false",
+    "--style",
+    String(style || "natural"),
+    "--auto-expressive",
+    autoExpressive ? "true" : "false",
+    "--speech-style",
+    String(speechStyle || "auto"),
+    "--ml-policy",
+    useMlPolicy ? "true" : "false",
+    "--voice-character",
+    voiceCharacter ? "true" : "false",
+    "--voice-tone",
+    String(voiceTone || "auto"),
+    "--segment-concurrency",
+    String(segmentConcurrency),
+    "--hybrid-prosody",
+    hybridProsody ? "true" : "false",
+    "--prosody-limiter",
+    prosodyLimiter ? "true" : "false",
+    "--prosody-limiter-strength",
+    String(prosodyLimiterStrength),
+    "--humanize-intensity",
+    String(humanizeIntensity)
+  ];
+  if (profileFile) {
+    args.push("--profile-file", String(profileFile));
+  }
+  try {
+    const result = await runPythonTts(args);
+    let styleName = style || "natural";
+    let resolvedProfile = profileFile || null;
+    let segmentCount = 0;
+    const prosodyPath = `${outputWithoutExt}.prosody.json`;
+    if (humanize && fs.existsSync(prosodyPath)) {
+      try {
+        const prosodyJson = JSON.parse(fs.readFileSync(prosodyPath, "utf8"));
+        styleName = String(prosodyJson?.style || styleName);
+        resolvedProfile = String(prosodyJson?.profileFile || resolvedProfile || "").trim() || null;
+        segmentCount = Array.isArray(prosodyJson?.segments) ? prosodyJson.segments.length : 0;
+      } catch {
+        // Keep synthesis result even if prosody metadata parsing fails.
+      }
+    }
+    return {
+      ...result,
+      audioPath: `${outputWithoutExt}.mp3`,
+      prosodyPath: humanize ? `${outputWithoutExt}.prosody.json` : null,
+      style: styleName,
+      profileFile: resolvedProfile,
+      segments: segmentCount
+    };
+  } finally {
+    try {
+      fs.unlinkSync(inputPath);
+    } catch {
+      // Ignore temp cleanup failures.
+    }
+  }
 }
 
 async function loadVoices() {
@@ -399,20 +535,21 @@ function enqueueJob({
 
     try {
       if (vHumanize) {
-        const res = await synthesizeHumanizedToMp3({
+        const res = await synthesizeViaPython({
+          jobId,
           text: cleaned,
-          output: outputWithoutExt,
+          outputWithoutExt,
           voice: vVoice,
-          rate: vRate, // kept for traceability, ignored by style rules during humanize
+          rate: vRate,
           pitch: vPitch,
           volume: vVolume,
-          cacheDir: CACHE_DIR,
+          humanize: true,
           humanizeIntensity: humanizeStrength,
           style: vStyle,
           autoExpressive: vAutoExpressive,
           speechStyle: vSpeechStyle,
           useMlPolicy: USE_ML_POLICY,
-          profileFile: profileFileOverride,
+          profileFile: profileFileOverride || null,
           voiceCharacter: vVoiceCharacter,
           voiceTone: vVoiceTone,
           segmentConcurrency,
@@ -481,14 +618,27 @@ function enqueueJob({
           addEvent(job, "warn", `training job row skipped (${jobValidation.reason})`);
         }
       } else {
-        await synthesizeToMp3({
+        await synthesizeViaPython({
+          jobId,
           text: cleaned,
-          output: outputWithoutExt,
+          outputWithoutExt,
           voice: vVoice,
           rate: vRate,
           pitch: vPitch,
           volume: vVolume,
-          cacheDir: CACHE_DIR
+          humanize: false,
+          humanizeIntensity: humanizeStrength,
+          style: vStyle,
+          autoExpressive: vAutoExpressive,
+          speechStyle: vSpeechStyle,
+          useMlPolicy: USE_ML_POLICY,
+          profileFile: profileFileOverride || null,
+          voiceCharacter: vVoiceCharacter,
+          voiceTone: vVoiceTone,
+          segmentConcurrency,
+          hybridProsody: vHybridProsody,
+          prosodyLimiter: vProsodyLimiter,
+          prosodyLimiterStrength: vProsodyLimiterStrength
         });
         const jobRow = {
           at: new Date().toISOString(),
@@ -813,4 +963,5 @@ app.get("/api/jobs/:jobId/prosody", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`TTS web running at http://localhost:${PORT}`);
+  console.log(`Training text source: ${TRAINING_BENCHMARK_FILE}`);
 });

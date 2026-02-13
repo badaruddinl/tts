@@ -28,12 +28,16 @@ def run_case(text, output_base, voice, style, speech_style, voice_tone):
         tmp_path = tmp.name
     try:
         cmd = [
-            "node",
-            "scripts/generate-tts.mjs",
+            "python",
+            "scripts_py/generate_tts.py",
             "--input",
             tmp_path,
             "--output",
             output_base,
+            "--runtime",
+            "py",
+            "--eval-mode",
+            "true",
             "--voice",
             voice,
             "--humanize",

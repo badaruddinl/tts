@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "id": "v2",
+    "trainer": "python",
+    "trainedFrom": "v1.json",
+    "trainedAt": "2026-02-13T06:27:14.163629+00:00",
+    "feedbackCount": 272,
+    "feedbackFile": "sqlite:data/training/training.db#feedback(scope=global,style=all)",
+    "feedbackSource": "sqlite"
+  },
+  "defaultStyle": "natural",
+  "styles": {
+    "natural": {
+      "base": {
+        "rate": 0.0,
+        "pitch": -0.4,
+        "volume": 0.3
+      },
+      "amplitude": {
+        "rate": 10.663448275862068,
+        "pitch": 5.631724137931034,
+        "volume": 5.7396551724137925
+      }
+    },
+    "horor_intim": {
+      "base": {
+        "rate": -17.281599999999994,
+        "pitch": -12.0,
+        "volume": 0.44999999999999996
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 3.891246684350132,
+        "volume": 6.0
+      }
+    },
+    "misteri": {
+      "base": {
+        "rate": -25.0,
+        "pitch": -12.0,
+        "volume": 6.150000000000004
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 4.3985647716682195,
+        "volume": 6.0
+      }
+    },
+    "sinematik": {
+      "base": {
+        "rate": -18.479199999999995,
+        "pitch": -12.0,
+        "volume": 4.65
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 4.635862068965517,
+        "volume": 6.0
+      }
+    },
+    "pasrah": {
+      "base": {
+        "rate": -25.0,
+        "pitch": -9.799999999999997,
+        "volume": 7.350000000000007
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 8.0,
+        "volume": 5.0
+      }
+    },
+    "dramatis": {
+      "base": {
+        "rate": 10.0,
+        "pitch": 7.05807999999999,
+        "volume": 5.5500000000000025
+      },
+      "amplitude": {
+        "rate": 10.122633228840128,
+        "pitch": 8.0,
+        "volume": 5.0
+      }
+    },
+    "datar": {
+      "base": {
+        "rate": 0.0,
+        "pitch": -0.6000000000000001,
+        "volume": 0.44999999999999996
+      },
+      "amplitude": {
+        "rate": 7.831724137931035,
+        "pitch": 3.815862068965517,
+        "volume": 3.8698275862068963
+      }
+    },
+    "thriller": {
+      "base": {
+        "rate": -20.650399999999994,
+        "pitch": -12.0,
+        "volume": 5.250000000000002
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 4.8740438871473355,
+        "volume": 6.0
+      }
+    },
+    "melankolis": {
+      "base": {
+        "rate": -18.4328,
+        "pitch": -6.200000000000003,
+        "volume": 4.65
+      },
+      "amplitude": {
+        "rate": 15.0,
+        "pitch": 8.0,
+        "volume": 5.0
+      }
+    },
+    "narator_tegas": {
+      "base": {
+        "rate": 0.0,
+        "pitch": -12.0,
+        "volume": 10.0
+      },
+      "amplitude": {
+        "rate": 9.925057471264369,
+        "pitch": 4.862528735632184,
+        "volume": 5.0
+      }
+    }
+  }
+}

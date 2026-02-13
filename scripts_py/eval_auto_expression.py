@@ -1,10 +1,35 @@
 import json
-import os
-import tempfile
-import subprocess
 from pathlib import Path
+from datetime import datetime, timezone
 
 from common_pipeline import parse_args
+from tts_core_py import parse_input_file, preview_auto_expression_from_text
+
+
+def average(items):
+    return (sum(items) / len(items)) if items else 0.0
+
+
+def transition_score(segments):
+    delta = []
+    for i in range(1, len(segments)):
+        a = segments[i - 1]
+        b = segments[i]
+        delta.append(
+            abs(float(b.get("rate", 0.0)) - float(a.get("rate", 0.0)))
+            + abs(float(b.get("pitch", 0.0)) - float(a.get("pitch", 0.0)))
+            + abs(float(b.get("volume", 0.0)) - float(a.get("volume", 0.0)))
+        )
+    return round(average(delta), 3)
+
+
+def energy(segments):
+    if not segments:
+        return 0.0
+    acc = 0.0
+    for seg in segments:
+        acc += abs(float(seg.get("rate", 0.0))) + abs(float(seg.get("pitch", 0.0))) + abs(float(seg.get("volume", 0.0)))
+    return round(acc / len(segments), 3)
 
 
 def evaluate_auto_expression(
@@ -17,115 +42,65 @@ def evaluate_auto_expression(
     prosody_limiter_strength=0.64,
     auto_expressive=True,
 ):
-    with tempfile.NamedTemporaryFile(prefix="eval_auto_", suffix=".json", delete=False) as tmp_out:
-        out_path = tmp_out.name
-    try:
-        node_src = r"""
-import fs from "fs";
-import path from "path";
-import { parseInputFile, previewAutoExpressionFromText } from "./lib/tts-core.mjs";
+    parsed = parse_input_file(str(Path(input_path).resolve()))
+    auto_run = preview_auto_expression_from_text(
+        text=parsed.get("text") or "",
+        style=style,
+        profile_file=profile_file,
+        humanize_intensity=humanize_intensity,
+        prosody_limiter=prosody_limiter,
+        prosody_limiter_strength=prosody_limiter_strength,
+        auto_expressive=auto_expressive,
+        allow_intent_override=False,
+    )
+    over_run = preview_auto_expression_from_text(
+        text=parsed.get("text") or "",
+        style=style,
+        profile_file=profile_file,
+        humanize_intensity=humanize_intensity,
+        prosody_limiter=prosody_limiter,
+        prosody_limiter_strength=prosody_limiter_strength,
+        auto_expressive=auto_expressive,
+        allow_intent_override=True,
+    )
+    auto_seg = auto_run.get("segments") if isinstance(auto_run, dict) else []
+    over_seg = over_run.get("segments") if isinstance(over_run, dict) else []
+    auto_seg = auto_seg if isinstance(auto_seg, list) else []
+    over_seg = over_seg if isinstance(over_seg, list) else []
 
-const params = JSON.parse(process.env.EVAL_PAYLOAD || "{}");
-const parsed = parseInputFile(path.resolve(params.inputPath));
-const autoRun = previewAutoExpressionFromText({
-  text: parsed.text,
-  style: params.style || null,
-  profileFile: params.profileFile || null,
-  humanizeIntensity: Number(params.humanizeIntensity ?? 0.7),
-  hybridProsody: Boolean(params.hybridProsody),
-  prosodyLimiter: Boolean(params.prosodyLimiter),
-  prosodyLimiterStrength: Number(params.prosodyLimiterStrength ?? 0.64),
-  autoExpressive: Boolean(params.autoExpressive),
-  allowIntentOverride: false
-});
-const overRun = previewAutoExpressionFromText({
-  text: parsed.text,
-  style: params.style || null,
-  profileFile: params.profileFile || null,
-  humanizeIntensity: Number(params.humanizeIntensity ?? 0.7),
-  hybridProsody: Boolean(params.hybridProsody),
-  prosodyLimiter: Boolean(params.prosodyLimiter),
-  prosodyLimiterStrength: Number(params.prosodyLimiterStrength ?? 0.64),
-  autoExpressive: Boolean(params.autoExpressive),
-  allowIntentOverride: true
-});
-function avg(items){ return items.length ? items.reduce((s,n)=>s+n,0)/items.length : 0; }
-function transitionScore(segments){
-  const delta=[];
-  for(let i=1;i<segments.length;i+=1){
-    const a=segments[i-1], b=segments[i];
-    delta.push(Math.abs((b.rate??0)-(a.rate??0))+Math.abs((b.pitch??0)-(a.pitch??0))+Math.abs((b.volume??0)-(a.volume??0)));
-  }
-  return Number(avg(delta).toFixed(3));
-}
-function energy(segments){
-  if(!Array.isArray(segments)||!segments.length) return 0;
-  const acc=segments.reduce((s,x)=>s+Math.abs(Number(x?.rate||0))+Math.abs(Number(x?.pitch||0))+Math.abs(Number(x?.volume||0)),0);
-  return Number((acc/segments.length).toFixed(3));
-}
-const autoSeg = autoRun.segments || [];
-const overSeg = overRun.segments || [];
-const count = Math.min(autoSeg.length, overSeg.length);
-let changedIntent=0, overrideIntent=0;
-for(let i=0;i<count;i+=1){
-  if((autoSeg[i]?.reason?.intent||"netral")!==(overSeg[i]?.reason?.intent||"netral")) changedIntent+=1;
-  if(overSeg[i]?.reason?.intentSource==="tag_override") overrideIntent+=1;
-}
-const report = {
-  at: new Date().toISOString(),
-  input: path.relative(process.cwd(), path.resolve(params.inputPath)),
-  profileFile: params.profileFile || "active",
-  hybridProsody: Boolean(params.hybridProsody),
-  styleAuto: autoRun.styleName,
-  styleOverride: overRun.styleName,
-  segments: count,
-  metrics: {
-    autoTransitionDelta: transitionScore(autoSeg),
-    overrideTransitionDelta: transitionScore(overSeg),
-    changedIntentSegments: changedIntent,
-    overrideIntentSegments: overrideIntent,
-    autoProsodyEnergy: energy(autoSeg),
-    overrideProsodyEnergy: energy(overSeg)
-  }
-};
-fs.writeFileSync(path.resolve(params.outputPath), JSON.stringify(report, null, 2), "utf8");
-"""
-        payload = {
-            "inputPath": str(Path(input_path).resolve()),
-            "outputPath": str(Path(out_path).resolve()),
-            "style": style,
-            "profileFile": profile_file,
-            "humanizeIntensity": float(humanize_intensity),
-            "hybridProsody": bool(hybrid_prosody),
-            "prosodyLimiter": bool(prosody_limiter),
-            "prosodyLimiterStrength": float(prosody_limiter_strength),
-            "autoExpressive": bool(auto_expressive),
-        }
-        env = dict(os.environ)
-        env["EVAL_PAYLOAD"] = json.dumps(payload, ensure_ascii=False)
-        res = subprocess.run(
-            ["node", "--input-type=module", "-e", node_src],
-            cwd=os.getcwd(),
-            text=True,
-            encoding="utf-8",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-            env=env,
-        )
-        if int(res.returncode or 0) != 0:
-            raise RuntimeError((res.stderr or res.stdout or "").strip() or "eval_auto_expression_failed")
-        with open(out_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    finally:
-        try:
-            os.remove(out_path)
-        except Exception:
-            pass
+    count = min(len(auto_seg), len(over_seg))
+    changed_intent = 0
+    override_intent = 0
+    for i in range(count):
+        ai = str((((auto_seg[i] or {}).get("reason") or {}).get("intent") or "netral"))
+        oi = str((((over_seg[i] or {}).get("reason") or {}).get("intent") or "netral"))
+        if ai != oi:
+            changed_intent += 1
+        src = str((((over_seg[i] or {}).get("reason") or {}).get("intentSource") or ""))
+        if src == "tag_override":
+            override_intent += 1
+
+    return {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "input": str(Path(input_path).resolve()).replace("\\", "/"),
+        "profileFile": profile_file or "active",
+        "hybridProsody": bool(hybrid_prosody),
+        "styleAuto": auto_run.get("styleName"),
+        "styleOverride": over_run.get("styleName"),
+        "segments": count,
+        "metrics": {
+            "autoTransitionDelta": transition_score(auto_seg),
+            "overrideTransitionDelta": transition_score(over_seg),
+            "changedIntentSegments": changed_intent,
+            "overrideIntentSegments": override_intent,
+            "autoProsodyEnergy": energy(auto_seg),
+            "overrideProsodyEnergy": energy(over_seg),
+        },
+    }
 
 
 def main():
-    args = parse_args(os.sys.argv[1:])
+    args = parse_args(__import__("sys").argv[1:])
     input_path = str(args.get("input") or "text_intent_test.txt")
     output = str(args.get("output") or "outputs/auto_expression_eval.json")
     style = str(args.get("style") or "").strip() or None

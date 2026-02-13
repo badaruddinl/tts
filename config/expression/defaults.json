@@ -1,0 +1,145 @@
+{
+  "updatedAt": "2026-02-13T13:14:34.704468+00:00",
+  "source": {
+    "testsDir": "tests/expressions",
+    "candidateStyles": [
+      "tegang",
+      "natural",
+      "sinematik",
+      "narator_tegas",
+      "melankolis"
+    ]
+  },
+  "selected": {
+    "style": "melankolis",
+    "score": 4.47415,
+    "gate": "pass"
+  },
+  "ranking": [
+    {
+      "style": "melankolis",
+      "score": 4.47415,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 4.8,
+        "avgChangedIntentSegments": 0.6,
+        "avgOverrideIntentSegments": 1.0,
+        "avgAutoTransitionDelta": 4.563,
+        "avgOverrideTransitionDelta": 5.122,
+        "avgAutoProsodyEnergy": 50.183,
+        "avgOverrideProsodyEnergy": 49.359
+      },
+      "summaryFile": "outputs/eval_select/melankolis/summary.json"
+    },
+    {
+      "style": "tegang",
+      "score": 5.20455,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 4.8,
+        "avgChangedIntentSegments": 0.6,
+        "avgOverrideIntentSegments": 1.0,
+        "avgAutoTransitionDelta": 5.729,
+        "avgOverrideTransitionDelta": 5.708,
+        "avgAutoProsodyEnergy": 52.642,
+        "avgOverrideProsodyEnergy": 52.073
+      },
+      "summaryFile": "outputs/eval_select/tegang/summary.json"
+    },
+    {
+      "style": "sinematik",
+      "score": 5.9508,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 4.8,
+        "avgChangedIntentSegments": 0.6,
+        "avgOverrideIntentSegments": 1.0,
+        "avgAutoTransitionDelta": 6.34,
+        "avgOverrideTransitionDelta": 6.676,
+        "avgAutoProsodyEnergy": 52.077,
+        "avgOverrideProsodyEnergy": 52.451
+      },
+      "summaryFile": "outputs/eval_select/sinematik/summary.json"
+    },
+    {
+      "style": "narator_tegas",
+      "score": 6.43105,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 4.8,
+        "avgChangedIntentSegments": 0.4,
+        "avgOverrideIntentSegments": 1.0,
+        "avgAutoTransitionDelta": 6.927,
+        "avgOverrideTransitionDelta": 7.212,
+        "avgAutoProsodyEnergy": 29.942,
+        "avgOverrideProsodyEnergy": 29.488
+      },
+      "summaryFile": "outputs/eval_select/narator_tegas/summary.json"
+    },
+    {
+      "style": "natural",
+      "score": 6.98325,
+      "gate": "pass",
+      "metrics": {
+        "avgSegments": 4.8,
+        "avgChangedIntentSegments": 0.6,
+        "avgOverrideIntentSegments": 1.0,
+        "avgAutoTransitionDelta": 7.764,
+        "avgOverrideTransitionDelta": 7.647,
+        "avgAutoProsodyEnergy": 20.412,
+        "avgOverrideProsodyEnergy": 23.103
+      },
+      "summaryFile": "outputs/eval_select/natural/summary.json"
+    }
+  ],
+  "selectedRuntime": {
+    "source": "sample_tuning",
+    "sampleFile": "sample/sample_text.json",
+    "sampleLock": true,
+    "forceHumanize": true,
+    "style": "natural",
+    "sampleStyle": "podcast-deep-dive",
+    "sampleStyleFallback": true,
+    "profileFile": "v57.json",
+    "humanizeIntensity": 1.0,
+    "autoExpressive": true,
+    "hybridProsody": true,
+    "prosodyLimiter": {
+      "enabled": true,
+      "strength": 0.64
+    },
+    "voiceCharacter": {
+      "speechStyle": "auto",
+      "voiceTone": "auto"
+    },
+    "base": {
+      "rate": "0%",
+      "pitch": "0Hz",
+      "volume": "0%"
+    },
+    "sampleStats": {
+      "segmentCount": 23,
+      "avgRate": -3.261,
+      "avgPitch": -2.174,
+      "avgVolume": 11.957
+    }
+  },
+  "limiterPolicy": {
+    "updatedAt": "2026-02-13T09:55:48.203039+00:00",
+    "style": "tegang",
+    "alpha": 0.65,
+    "fallbackStrength": 0.818,
+    "predictedStrength": 0.694,
+    "blendedStrength": 0.738,
+    "modelMeta": {
+      "createdAt": "2026-02-13T09:55:01.350538+00:00",
+      "sampleCount": 186,
+      "styleScope": "all",
+      "feedbackFile": "sqlite:data/training/training.db#feedback(scope=global,style=all)",
+      "feedbackSource": "sqlite",
+      "version": "limiter-policy-v1-py",
+      "trainer": "python"
+    },
+    "feedbackFile": "data/training/feedback.ndjson"
+  }
+}

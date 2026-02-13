@@ -126,6 +126,12 @@ async function main() {
   if (legacyArdiHeavy === "false" && (!args["voice-tone"] || String(args["voice-tone"]).trim() === "")) {
     voiceTone = "off";
   }
+  const autoPunctuate = toBool(args["auto-punctuate"] ?? process.env.TTS_AUTO_PUNCTUATE, true);
+  const autoPunctuateMode = String(
+    args["auto-punctuate-mode"] ?? process.env.TTS_AUTO_PUNCTUATE_MODE ?? "balanced"
+  ).trim();
+  const textRewrite = toBool(args["text-rewrite"] ?? process.env.TTS_TEXT_REWRITE, true);
+  const textLexiconPath = String(args["text-lexicon"] ?? process.env.TTS_TEXT_LEXICON ?? "").trim() || null;
 
   if (humanize) {
     const segmentConcurrencyRaw = Number(args["segment-concurrency"] ?? DEFAULTS.segmentConcurrency ?? 1);
@@ -152,7 +158,11 @@ async function main() {
       segmentConcurrency,
       prosodyLimiter,
       prosodyLimiterStrength,
-      saveProsody
+      saveProsody,
+      autoPunctuate,
+      autoPunctuateMode,
+      textRewrite,
+      textLexiconPath
     });
     const prosodyLabel = res.prosodyPath ? path.basename(res.prosodyPath) : "disabled";
     console.log(`Humanize done: audio=${path.basename(res.audioPath)}, prosody=${prosodyLabel}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`);
@@ -165,7 +175,11 @@ async function main() {
       pitch,
       volume,
       cacheDir: path.resolve(process.cwd(), ".tts-cache"),
-      backend
+      backend,
+      autoPunctuate,
+      autoPunctuateMode,
+      textRewrite,
+      textLexiconPath
     });
   }
 }

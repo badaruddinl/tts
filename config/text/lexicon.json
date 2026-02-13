@@ -1,0 +1,24 @@
+{
+  "replacements": [
+    {
+      "from": "gk",
+      "to": "enggak"
+    },
+    {
+      "from": "ga",
+      "to": "enggak"
+    },
+    {
+      "from": "yg",
+      "to": "yang"
+    },
+    {
+      "from": "utk",
+      "to": "untuk"
+    },
+    {
+      "from": "dr",
+      "to": "dari"
+    }
+  ]
+}

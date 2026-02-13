@@ -124,9 +124,6 @@ def main():
     if trainer != "py":
         raise RuntimeError(f"invalid_trainer={trainer} expected=py")
 
-    intensity = float(args.get("intensity") or 1.0)
-    intensity = max(0.0, min(1.0, intensity))
-    voices = [v.strip() for v in str(args.get("voices") or "id-ID-ArdiNeural,id-ID-GadisNeural").split(",") if v.strip()]
     min_feedback = int(float(args.get("min-feedback") or 1))
     training_store = str(args.get("training-store") or "auto").strip().lower()
     if training_store not in ("auto", "ndjson", "sqlite"):
@@ -136,8 +133,6 @@ def main():
     trainer_feedback_source = "sqlite" if training_store == "sqlite" else ("sqlite" if training_store == "auto" and db_exists else "ndjson")
     eval_db_enabled = trainer_feedback_source == "sqlite"
     styles = str(args.get("styles") or "").strip()
-    run_benchmark = to_bool(args.get("benchmark"), True)
-    run_schema_migrate = to_bool(args.get("schema-migrate"), True)
     run_expression_eval = to_bool(args.get("expression-eval"), True)
     expression_strict = to_bool(args.get("expression-strict"), False)
     expression_dir = str(args.get("expression-dir") or "tests/expressions")
@@ -175,14 +170,10 @@ def main():
     final_tts_input = str(args.get("final-tts-input") or "template.tts.txt")
     final_tts_output = str(args.get("final-tts-output") or "outputs/final.mp3")
     final_tts_humanize = to_bool(args.get("final-tts-humanize"), True)
+    run_sample_tuning = to_bool(args.get("sample-tuning"), True)
+    sample_tuning_file = str(args.get("sample-tuning-file") or "").strip()
 
     print("self_train:start")
-    use_ndjson_preprocess = training_store != "sqlite"
-    if run_schema_migrate and use_ndjson_preprocess:
-        run_step("schema_migrate", ["python", "scripts_py/migrate_feedback_schema.py"])
-    if use_ndjson_preprocess:
-        run_step("dedupe", ["python", "scripts_py/dedupe_training_data.py"])
-        run_step("style_detail", ["python", "scripts_py/enrich_style_feedback.py"])
     if training_store in ("auto", "sqlite"):
         run_step("sqlite_migrate", ["python", "scripts_py/migrate_training_to_sqlite.py", "--db-file", db_file])
         trainer_feedback_source = "sqlite"
@@ -234,13 +225,6 @@ def main():
                 f"ml_{style}_py",
                 style_cmd,
             )
-
-    if run_benchmark:
-        for voice in voices:
-            bench_cmd = ["python", "scripts_py/generate_style_benchmarks.py", "--voice", voice, "--intensity", str(intensity)]
-            if styles:
-                bench_cmd += ["--styles", styles]
-            run_step(f"benchmark_{voice}", bench_cmd)
 
     if run_expression_eval:
         eval_exit = (0,) if expression_strict else (0, 2)
@@ -473,6 +457,12 @@ def main():
                 "limiter_policy_apply",
                 ["python", "scripts_py/apply_limiter_policy_default.py", "--style", hybrid_style],
             )
+
+    if run_sample_tuning:
+        sample_cmd = ["python", "scripts_py/apply_sample_tuning.py"]
+        if sample_tuning_file:
+            sample_cmd += ["--sample", sample_tuning_file]
+        run_step("sample_tuning_apply", sample_cmd)
 
     if run_final_tts:
         run_step(
