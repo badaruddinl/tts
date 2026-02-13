@@ -23,6 +23,12 @@ Humanize mode (automatic per-segment rate/pitch/volume variation + prosody data)
 npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --humanize-intensity 0.55
 ```
 
+Optional segment parallelism (faster humanize, higher CPU/network usage):
+
+```powershell
+npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --segment-concurrency 2
+```
+
 Hybrid prosody mode (base per-segment + phrase override + important-word boost) is enabled by default.  
 Disable for A/B:
 
@@ -65,6 +71,13 @@ Disable it for fully neutral output:
 
 ```powershell
 npm run tts -- --input text.txt --output result_neutral.mp3 --humanize true --auto-expressive false
+```
+
+Prosody limiter (human-like guardrail) is enabled by default in humanize mode.  
+You can override it manually:
+
+```powershell
+npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --prosody-limiter true --prosody-limiter-strength 0.72
 ```
 
 Choose a style profile:
@@ -169,6 +182,12 @@ Run with Python trainer backend for profile + ML policy steps:
 npm run train:self:py
 ```
 
+Loop continuously until stopped manually (`Ctrl + C`):
+
+```powershell
+npm run py:train:self:py:loop
+```
+
 Automatically runs:
 - Dedupe training data
 - Enrich detailed style feedback
@@ -177,7 +196,9 @@ Automatically runs:
 - Generate benchmark for 2 default voices (`Ardi` + `Gadis`)
 - Run expression quality suite (`tests/expressions`)
 - Auto-select expression default style and save to `config/expression/defaults.json`
+- Run expression A/B and auto-apply winner runtime defaults (`style + humanize intensity + hybrid + prosody limiter`)
 - Run hybrid prosody A/B suite (`hybrid off` vs `hybrid on`)
+- Generate final TTS automatically from `template.tts.txt` into `outputs/final.mp3`
 
 Example options:
 
@@ -189,12 +210,22 @@ Optional expression flags:
 - `--expression-eval false` to skip expression suite + default selection
 - `--expression-strict true` to make quality gate failure stop the pipeline
 - `--expression-dir tests/expressions` to use a custom expression test directory
+- `--expression-ab false` to skip expression A/B
+- `--expression-ab-apply false` to run A/B but not auto-apply winner to runtime defaults
+- `--expression-ab-intensity-a 0.4` A configuration humanize intensity
+- `--expression-ab-intensity-b 0.7` B configuration humanize intensity
 - `--hybrid-eval false` to skip hybrid A/B suite
+- `--hybrid-ab-apply false` to run hybrid A/B but not auto-apply winner to runtime defaults
 - `--hybrid-strict true` to stop pipeline if hybrid A/B step fails
 - `--hybrid-eval-dir tests/expressions` to use custom hybrid test directory
 - `--hybrid-style tegang` to set style evaluated in hybrid A/B
 - `--voice-eval false` to skip voice character suite
 - `--voice-strict true` to make voice suite gate failure stop the pipeline
+- `--final-tts false` to skip auto-generate final TTS
+- `--final-tts-input template.tts.txt` to change auto-generate input file
+- `--final-tts-output outputs/final.mp3` to change auto-generate output file
+- `--sleep-ms 2000` (loop mode) to set delay between rounds
+- `--stop-on-error true` (loop mode) to stop loop if one round fails
 
 ## 7) Auto vs Tag Override evaluation
 
@@ -211,6 +242,12 @@ Run the multi-case Indonesian suite:
 
 ```powershell
 npm run eval:expression-suite -- --dir tests/expressions --style tegang
+```
+
+Expression A/B (compare two configs, useful for "lebih manusiawi"):
+
+```powershell
+npm run eval:expression-ab -- --dir tests/expressions --style-a tegang --style-b tegang --intensity-a 0.4 --intensity-b 0.7
 ```
 
 Hybrid A/B runner (`hybrid-prosody off` vs `on`):

@@ -19,12 +19,12 @@ function parseArgs(argv) {
   return out;
 }
 
-function runEval({ inputPath, outputPath, style, profileFile, hybridProsody }) {
+function runEval({ inputPath, outputPath, style, profileFile, hybridProsody, humanizeIntensity }) {
   const report = evaluateAutoExpression({
     inputPath,
     style,
     profileFile,
-    humanizeIntensity: 0.7,
+    humanizeIntensity,
     hybridProsody
   });
   fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
@@ -43,6 +43,7 @@ function main() {
   const profileFile = String(args["profile-file"] || "").trim();
   const hybridProsody =
     String(args["hybrid-prosody"] ?? "true").toLowerCase() === "true";
+  const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
   const maxAutoDelta = Number(args["max-auto-delta"] ?? 9.8);
   const maxOverrideDelta = Number(args["max-override-delta"] ?? 10.2);
   const minAvgOverrideSegments = Number(args["min-avg-override-segments"] ?? 0.8);
@@ -67,7 +68,7 @@ function main() {
   for (const file of files) {
     const inputPath = path.join(testsDir, file);
     const outPath = path.join(reportDir, `${file.replace(/\.txt$/i, "")}.json`);
-    runEval({ inputPath, outputPath: outPath, style, profileFile, hybridProsody });
+    runEval({ inputPath, outputPath: outPath, style, profileFile, hybridProsody, humanizeIntensity });
     const report = JSON.parse(fs.readFileSync(outPath, "utf8"));
     rows.push({
       file,

@@ -79,7 +79,16 @@ function main() {
   const runExpressionEval = String(args["expression-eval"] ?? "true").toLowerCase() === "true";
   const expressionStrict = String(args["expression-strict"] ?? "false").toLowerCase() === "true";
   const expressionDir = String(args["expression-dir"] || "tests/expressions");
+  const runExpressionAb = String(args["expression-ab"] ?? "true").toLowerCase() === "true";
+  const applyExpressionAb = String(args["expression-ab-apply"] ?? "true").toLowerCase() === "true";
+  const expressionAbDir = String(args["expression-ab-dir"] || expressionDir);
+  const expressionAbOutDir = String(args["expression-ab-outdir"] || "outputs/eval_expression_ab_self");
+  const expressionAbStyleA = String(args["expression-ab-style-a"] || "tegang");
+  const expressionAbStyleB = String(args["expression-ab-style-b"] || expressionAbStyleA);
+  const expressionAbIntensityA = String(args["expression-ab-intensity-a"] || "0.4");
+  const expressionAbIntensityB = String(args["expression-ab-intensity-b"] || "0.7");
   const runHybridEval = String(args["hybrid-eval"] ?? "true").toLowerCase() === "true";
+  const applyHybridAb = String(args["hybrid-ab-apply"] ?? "true").toLowerCase() === "true";
   const hybridStrict = String(args["hybrid-strict"] ?? "false").toLowerCase() === "true";
   const hybridEvalDir = String(args["hybrid-eval-dir"] || "tests/expressions");
   const hybridStyle = String(args["hybrid-style"] || "tegang");
@@ -91,6 +100,10 @@ function main() {
   const runVoiceEval = String(args["voice-eval"] ?? "true").toLowerCase() === "true";
   const voiceStrict = String(args["voice-strict"] ?? "false").toLowerCase() === "true";
   const voiceEvalDir = String(args["voice-eval-dir"] || "tests/voice");
+  const runFinalTts = String(args["final-tts"] ?? "true").toLowerCase() === "true";
+  const finalTtsInput = String(args["final-tts-input"] || "template.tts.txt");
+  const finalTtsOutput = String(args["final-tts-output"] || "outputs/final.mp3");
+  const finalTtsHumanize = String(args["final-tts-humanize"] ?? "true").toLowerCase() === "true";
 
   console.log("self_train:start");
   if (runSchemaMigrate) {
@@ -166,6 +179,31 @@ function main() {
     ]);
   }
 
+  if (runExpressionAb) {
+    runStep("expression_ab", [
+      "scripts/eval-expression-ab.mjs",
+      "--dir",
+      expressionAbDir,
+      "--outdir",
+      expressionAbOutDir,
+      "--style-a",
+      expressionAbStyleA,
+      "--style-b",
+      expressionAbStyleB,
+      "--intensity-a",
+      expressionAbIntensityA,
+      "--intensity-b",
+      expressionAbIntensityB
+    ]);
+    if (applyExpressionAb) {
+      runStep("expression_ab_apply", [
+        "scripts/apply-expression-ab-default.mjs",
+        "--summary",
+        `${expressionAbOutDir}/summary.json`
+      ]);
+    }
+  }
+
   if (runVoiceEval) {
     const voiceExitCodes = voiceStrict ? [0] : [0, 2];
     runStep(
@@ -190,6 +228,25 @@ function main() {
       ],
       { allowedExitCodes: hybridExitCodes }
     );
+    if (applyHybridAb) {
+      runStep("hybrid_ab_apply", [
+        "scripts/apply-hybrid-ab-default.mjs",
+        "--summary",
+        `${hybridOutDir}/summary.json`
+      ]);
+    }
+  }
+
+  if (runFinalTts) {
+    runStep("final_tts", [
+      "scripts/generate-tts.mjs",
+      "--input",
+      finalTtsInput,
+      "--output",
+      finalTtsOutput,
+      "--humanize",
+      finalTtsHumanize ? "true" : "false"
+    ]);
   }
 
   console.log("self_train:done");

@@ -19,7 +19,8 @@ import {
   readProfileFile
 } from "../lib/profile-store.mjs";
 import { trainProfileFromFeedback } from "../lib/profile-trainer.mjs";
-import { getExpressionDefaultStyle } from "../lib/expression-defaults.mjs";
+import { getExpressionDefaultStyle, getExpressionRuntimeDefaults } from "../lib/expression-defaults.mjs";
+import { validateFeedbackRow, validateTrainingJobRow } from "../lib/ndjson-schema.mjs";
 
 dotenv.config({ quiet: true });
 
@@ -28,6 +29,7 @@ const PORT = Number(process.env.WEB_PORT || 3030);
 const OUTPUT_DIR = path.resolve(process.cwd(), "outputs");
 const CACHE_DIR = path.resolve(process.cwd(), ".tts-cache");
 const LOG_FILE = path.join(CACHE_DIR, "jobs.log");
+const JOBS_STORE = path.join(CACHE_DIR, "jobs.json");
 const TRAINING_DIR = ensureTrainingDirs();
 const TRAINING_FEEDBACK_FILE = path.join(TRAINING_DIR, "feedback.ndjson");
 const TRAINING_JOBS_FILE = path.join(TRAINING_DIR, "jobs.ndjson");
@@ -35,6 +37,8 @@ const TRAINING_BENCHMARK_FILE = path.resolve(process.cwd(), "config", "training"
 const AUTO_TRAIN = String(process.env.TTS_AUTO_TRAIN || "true").toLowerCase() === "true";
 const AUTO_TRAIN_MIN_FEEDBACK = Number(process.env.TTS_AUTO_TRAIN_MIN_FEEDBACK || "2");
 const USE_ML_POLICY = String(process.env.TTS_ML_POLICY || "true").toLowerCase() === "true";
+const DEFAULT_SEGMENT_CONCURRENCY = Math.max(1, Number(process.env.TTS_SEGMENT_CONCURRENCY || "1"));
+const RUNTIME_DEFAULTS = getExpressionRuntimeDefaults();
 
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -45,11 +49,27 @@ const DEFAULTS = {
   pitch: process.env.TTS_PITCH || "-2Hz",
   volume: process.env.TTS_VOLUME || "0%",
   humanize: String(process.env.TTS_HUMANIZE || "false").toLowerCase() === "true",
-  humanizeIntensity: Number(process.env.TTS_HUMANIZE_INTENSITY || "0.45"),
+  humanizeIntensity: Number(process.env.TTS_HUMANIZE_INTENSITY || RUNTIME_DEFAULTS.humanizeIntensity || "0.45"),
   style: process.env.TTS_STYLE || getExpressionDefaultStyle("natural"),
+  hybridProsody:
+    String(
+      process.env.TTS_HYBRID_PROSODY ??
+        (RUNTIME_DEFAULTS.hybridProsody === null ? "true" : String(RUNTIME_DEFAULTS.hybridProsody))
+    ).toLowerCase() === "true",
   speechStyle: process.env.TTS_SPEECH_STYLE || "auto",
   voiceCharacter: String(process.env.TTS_VOICE_CHARACTER || "true").toLowerCase() === "true",
-  voiceTone: process.env.TTS_VOICE_TONE || "auto"
+  voiceTone: process.env.TTS_VOICE_TONE || "auto",
+  segmentConcurrency: DEFAULT_SEGMENT_CONCURRENCY,
+  prosodyLimiter:
+    String(
+      process.env.TTS_PROSODY_LIMITER ??
+        (RUNTIME_DEFAULTS?.prosodyLimiter?.enabled === null
+          ? "true"
+          : String(RUNTIME_DEFAULTS.prosodyLimiter.enabled))
+    ).toLowerCase() === "true",
+  prosodyLimiterStrength: Number(
+    process.env.TTS_PROSODY_LIMITER_STRENGTH ?? RUNTIME_DEFAULTS?.prosodyLimiter?.strength ?? "0.72"
+  )
 };
 
 const jobs = new Map();
@@ -57,9 +77,51 @@ const MAX_JOBS = 100;
 let voiceCache = null;
 let voiceCacheAt = 0;
 const VOICE_CACHE_MS = 5 * 60 * 1000;
+let saveTimer = null;
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.resolve(process.cwd(), "web/public")));
+
+loadJobsFromDisk();
+
+function scheduleSaveJobs() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      const payload = [...jobs.values()];
+      fs.writeFileSync(JOBS_STORE, JSON.stringify(payload, null, 2), "utf8");
+    } catch (err) {
+      console.error(`failed to persist jobs: ${err.message || String(err)}`);
+    }
+  }, 300);
+}
+
+function loadJobsFromDisk() {
+  if (!fs.existsSync(JOBS_STORE)) return;
+  try {
+    const raw = JSON.parse(fs.readFileSync(JOBS_STORE, "utf8"));
+    if (!Array.isArray(raw)) return;
+    for (const job of raw) {
+      if (!job || typeof job !== "object") continue;
+      const status = String(job.status || "unknown");
+      if (status === "queued" || status === "running") {
+        job.status = "failed";
+        job.error = "server_restarted";
+        job.updatedAt = new Date().toISOString();
+        job.events = Array.isArray(job.events) ? job.events : [];
+        job.events.push({
+          at: job.updatedAt,
+          level: "warn",
+          message: "job marked failed after server restart"
+        });
+      }
+      jobs.set(job.id, job);
+    }
+  } catch (err) {
+    console.error(`failed to load jobs: ${err.message || String(err)}`);
+  }
+}
 
 function cleanupJobsIfNeeded() {
   if (jobs.size <= MAX_JOBS) return;
@@ -68,6 +130,7 @@ function cleanupJobsIfNeeded() {
   for (let i = 0; i < extra; i += 1) {
     jobs.delete(keys[i]);
   }
+  scheduleSaveJobs();
 }
 
 function appendLog(jobId, level, message) {
@@ -84,6 +147,7 @@ function addEvent(job, level, message) {
   };
   job.events.push(evt);
   appendLog(job.id, level, message);
+  scheduleSaveJobs();
 }
 
 function sanitizeBaseName(name) {
@@ -106,6 +170,12 @@ function parseBool(value, fallback = false) {
   if (["1", "true", "yes", "on"].includes(s)) return true;
   if (["0", "false", "no", "off"].includes(s)) return false;
   return fallback;
+}
+
+function parseSegmentConcurrency(value, fallback = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(8, Math.floor(n)));
 }
 
 function getEdgeCliPath() {
@@ -221,6 +291,10 @@ function enqueueJob({
   voiceCharacter,
   voiceTone,
   humanizeIntensity,
+  hybridProsody,
+  prosodyLimiter,
+  prosodyLimiterStrength,
+  segmentConcurrency: segmentConcurrencyRaw,
   outputName,
   profileFileOverride = null,
   source = "manual"
@@ -257,6 +331,13 @@ function enqueueJob({
   const humanizeStrength = Number.isFinite(humanizeIntensityRaw)
     ? Math.max(0, Math.min(1, humanizeIntensityRaw))
     : DEFAULTS.humanizeIntensity;
+  const vHybridProsody = parseBool(hybridProsody, DEFAULTS.hybridProsody);
+  const vProsodyLimiter = parseBool(prosodyLimiter, DEFAULTS.prosodyLimiter);
+  const vProsodyLimiterStrengthRaw = Number(prosodyLimiterStrength ?? DEFAULTS.prosodyLimiterStrength);
+  const vProsodyLimiterStrength = Number.isFinite(vProsodyLimiterStrengthRaw)
+    ? Math.max(0.3, Math.min(1, vProsodyLimiterStrengthRaw))
+    : DEFAULTS.prosodyLimiterStrength;
+  const segmentConcurrency = parseSegmentConcurrency(segmentConcurrencyRaw ?? DEFAULTS.segmentConcurrency, DEFAULTS.segmentConcurrency);
 
   const requestedName = outputName || parsed.meta.OUTPUT || jobId;
   const baseName = sanitizeBaseName(requestedName);
@@ -279,6 +360,10 @@ function enqueueJob({
     speechStyle: vSpeechStyle,
     voiceCharacter: vVoiceCharacter,
     voiceTone: vVoiceTone,
+    hybridProsody: vHybridProsody,
+    prosodyLimiter: vProsodyLimiter,
+    prosodyLimiterStrength: vProsodyLimiterStrength,
+    segmentConcurrency,
     profileFileOverride,
     source,
     error: null,
@@ -288,10 +373,11 @@ function enqueueJob({
     jobs.get(jobId),
     "info",
     vHumanize
-      ? `queued with voice=${vVoice}, humanize=true, style=${vStyle}, speech_style=${vSpeechStyle}, voice_tone=${vVoiceTone}, source=${source}, ignored_by_humanize(rate=${vRate}, pitch=${vPitch}, volume=${vVolume})`
+      ? `queued with voice=${vVoice}, humanize=true, style=${vStyle}, speech_style=${vSpeechStyle}, voice_tone=${vVoiceTone}, segment_concurrency=${segmentConcurrency}, source=${source}, ignored_by_humanize(rate=${vRate}, pitch=${vPitch}, volume=${vVolume})`
       : `queued with voice=${vVoice}, humanize=false, rate=${vRate}, pitch=${vPitch}, volume=${vVolume}, style=${vStyle}, source=${source}`
   );
   cleanupJobsIfNeeded();
+  scheduleSaveJobs();
 
   (async () => {
     const job = jobs.get(jobId);
@@ -316,10 +402,14 @@ function enqueueJob({
           useMlPolicy: USE_ML_POLICY,
           profileFile: profileFileOverride,
           voiceCharacter: vVoiceCharacter,
-          voiceTone: vVoiceTone
+          voiceTone: vVoiceTone,
+          segmentConcurrency,
+          hybridProsody: vHybridProsody,
+          prosodyLimiter: vProsodyLimiter,
+          prosodyLimiterStrength: vProsodyLimiterStrength
         });
         addEvent(job, "info", `humanize segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`);
-        appendNdjson(TRAINING_JOBS_FILE, {
+        const jobRow = {
           at: new Date().toISOString(),
           jobId,
           voice: vVoice,
@@ -329,20 +419,19 @@ function enqueueJob({
           intensity: humanizeStrength,
           outputFile: job.outputFile,
           prosodyFile: job.prosodyFile
-        });
-        const styleJobs = getStyleTrainingFile(res.style || vStyle, "jobs");
-        appendNdjson(styleJobs.filePath, {
-          at: new Date().toISOString(),
-          jobId,
-          voice: vVoice,
-          mode: "humanize",
-          style: res.style || vStyle,
-          styleKey: styleJobs.styleKey,
-          profileFile: res.profileFile,
-          intensity: humanizeStrength,
-          outputFile: job.outputFile,
-          prosodyFile: job.prosodyFile
-        });
+        };
+        const jobValidation = validateTrainingJobRow(jobRow);
+        if (jobValidation.ok) {
+          appendNdjson(TRAINING_JOBS_FILE, jobRow);
+          const styleJobs = getStyleTrainingFile(res.style || vStyle, "jobs");
+          appendNdjson(styleJobs.filePath, {
+            ...jobRow,
+            style: res.style || vStyle,
+            styleKey: styleJobs.styleKey
+          });
+        } else {
+          addEvent(job, "warn", `training job row skipped (${jobValidation.reason})`);
+        }
       } else {
         await synthesizeToMp3({
           text: cleaned,
@@ -353,7 +442,7 @@ function enqueueJob({
           volume: vVolume,
           cacheDir: CACHE_DIR
         });
-        appendNdjson(TRAINING_JOBS_FILE, {
+        const jobRow = {
           at: new Date().toISOString(),
           jobId,
           voice: vVoice,
@@ -363,20 +452,19 @@ function enqueueJob({
           intensity: null,
           outputFile: job.outputFile,
           prosodyFile: null
-        });
-        const styleJobs = getStyleTrainingFile(vStyle || "general", "jobs");
-        appendNdjson(styleJobs.filePath, {
-          at: new Date().toISOString(),
-          jobId,
-          voice: vVoice,
-          mode: "normal",
-          style: vStyle || "general",
-          styleKey: styleJobs.styleKey,
-          profileFile: null,
-          intensity: null,
-          outputFile: job.outputFile,
-          prosodyFile: null
-        });
+        };
+        const jobValidation = validateTrainingJobRow(jobRow);
+        if (jobValidation.ok) {
+          appendNdjson(TRAINING_JOBS_FILE, jobRow);
+          const styleJobs = getStyleTrainingFile(vStyle || "general", "jobs");
+          appendNdjson(styleJobs.filePath, {
+            ...jobRow,
+            style: vStyle || "general",
+            styleKey: styleJobs.styleKey
+          });
+        } else {
+          addEvent(job, "warn", `training job row skipped (${jobValidation.reason})`);
+        }
       }
       job.status = "completed";
       job.updatedAt = new Date().toISOString();
@@ -405,6 +493,10 @@ app.post("/api/jobs", async (req, res) => {
     voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character,
     voiceTone: req.body?.voiceTone ?? req.body?.voice_tone,
     humanizeIntensity: req.body?.humanizeIntensity,
+    hybridProsody: req.body?.hybridProsody ?? req.body?.hybrid_prosody,
+    prosodyLimiter: req.body?.prosodyLimiter ?? req.body?.prosody_limiter,
+    prosodyLimiterStrength: req.body?.prosodyLimiterStrength ?? req.body?.prosody_limiter_strength,
+    segmentConcurrency: req.body?.segmentConcurrency ?? req.body?.segment_concurrency,
     outputName: req.body?.outputName,
     source: "manual"
   });
@@ -436,6 +528,11 @@ app.post("/api/training/jobs", async (req, res) => {
     voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character ?? DEFAULTS.voiceCharacter,
     voiceTone: req.body?.voiceTone ?? req.body?.voice_tone ?? DEFAULTS.voiceTone,
     humanizeIntensity: req.body?.humanizeIntensity ?? DEFAULTS.humanizeIntensity,
+    hybridProsody: req.body?.hybridProsody ?? req.body?.hybrid_prosody ?? DEFAULTS.hybridProsody,
+    prosodyLimiter: req.body?.prosodyLimiter ?? req.body?.prosody_limiter ?? DEFAULTS.prosodyLimiter,
+    prosodyLimiterStrength:
+      req.body?.prosodyLimiterStrength ?? req.body?.prosody_limiter_strength ?? DEFAULTS.prosodyLimiterStrength,
+    segmentConcurrency: req.body?.segmentConcurrency ?? req.body?.segment_concurrency ?? DEFAULTS.segmentConcurrency,
     outputName: req.body?.outputName || `training_${req.body?.style || DEFAULTS.style}`,
     profileFileOverride: profileFile,
     source: "training_benchmark"
@@ -507,6 +604,10 @@ app.post("/api/jobs/:jobId/feedback", (req, res) => {
     outputFile: path.basename(job.outputFile),
     prosodyFile: fs.existsSync(job.prosodyFile) ? path.basename(job.prosodyFile) : null
   };
+  const feedbackValidation = validateFeedbackRow(payload);
+  if (!feedbackValidation.ok) {
+    return res.status(400).json({ error: `Invalid feedback payload (${feedbackValidation.reason}).` });
+  }
   appendNdjson(TRAINING_FEEDBACK_FILE, payload);
   const styleFeedback = getStyleTrainingFile(job.style || "general", "feedback");
   appendNdjson(styleFeedback.filePath, {
