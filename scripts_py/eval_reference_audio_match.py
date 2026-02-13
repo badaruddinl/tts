@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from common_pipeline import parse_args, run_cmd
@@ -120,6 +121,29 @@ def summarize_prosody_segments(rows):
     }
 
 
+def run_generate_with_retry(cmd, retries=4, backoff_sec=2.0):
+    last_err = None
+    for attempt in range(1, max(1, int(retries)) + 1):
+        try:
+            run_cmd(cmd, allowed_exit_codes=(0,), capture=True)
+            return
+        except Exception as exc:
+            last_err = exc
+            msg = str(exc).lower()
+            transient = (
+                "503" in msg
+                or "invalid response status" in msg
+                or "websocket inactivity timeout" in msg
+                or "temporarily unavailable" in msg
+            )
+            if (not transient) or attempt >= int(retries):
+                break
+            wait_sec = float(backoff_sec) * attempt
+            print(f"reference_match synth retry={attempt}/{retries} wait={wait_sec:.1f}s reason=transient_edge_tts")
+            time.sleep(wait_sec)
+    raise last_err if last_err else RuntimeError("reference_match_synthesis_failed")
+
+
 def main():
     args = parse_args(__import__("sys").argv[1:])
     sample_json = pick_sample_json(args.get("sample"))
@@ -139,17 +163,20 @@ def main():
         tmp.write(sample_text + "\n")
         tmp_path = Path(tmp.name).resolve()
     generated = out_dir / "reference_match.mp3"
+    synth_retries = int(float(args.get("synth-retries") or os.environ.get("TTS_SYNTH_RETRIES") or 4))
+    synth_backoff = float(args.get("synth-retry-backoff") or os.environ.get("TTS_SYNTH_RETRY_BACKOFF") or 2.0)
     try:
-        run_cmd(
+        run_generate_with_retry(
             [
-                "python",
+                str(os.environ.get("TTS_PYTHON_BIN") or os.environ.get("PYTHON") or "python"),
                 "scripts_py/generate_tts.py",
                 "--input",
                 str(tmp_path),
                 "--output",
                 str(generated),
             ],
-            allowed_exit_codes=(0,),
+            retries=max(1, synth_retries),
+            backoff_sec=max(0.5, synth_backoff),
         )
     finally:
         try:
