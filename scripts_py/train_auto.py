@@ -1,6 +1,9 @@
+import os
+import subprocess
 import sys
-from _node_wrap import run_node
 
 
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/train-auto.mjs"))
+    cmd = ["python", "scripts_py/train.py", "--mode", "all", "--db-file", "data/training/training.db"] + sys.argv[1:]
+    res = subprocess.run(cmd, cwd=os.getcwd(), shell=False)
+    raise SystemExit(int(res.returncode or 0))

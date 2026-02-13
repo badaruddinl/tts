@@ -5,9 +5,21 @@ import math
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
+
+from training_db import (
+    connect_db,
+    default_db_path,
+    fetch_feedback_rows,
+    record_training_run,
+    register_model_version,
+    resolve_source_mode,
+    source_label_for_sqlite,
+    upsert_recommendation,
+)
 
 
-def read_ndjson(file_path):
+def read_ndjson_file(file_path):
     if not os.path.exists(file_path):
         return []
     rows = []
@@ -26,6 +38,42 @@ def read_ndjson(file_path):
 def read_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def resolve_feedback_rows(
+    cwd,
+    feedback_file,
+    feedback_source="auto",
+    db_file="",
+    style_scope="",
+):
+    db_path = Path(db_file or default_db_path(cwd)).resolve()
+    mode = resolve_source_mode(feedback_source, db_path, fallback="ndjson")
+    style_key = str(style_scope or "").strip().lower()
+    if mode == "sqlite":
+        conn = connect_db(db_path, ensure_schema=True)
+        rows = fetch_feedback_rows(
+            conn,
+            style=style_key,
+            source_scope="style" if style_key else "global",
+        )
+        conn.close()
+        return {
+            "rows": rows,
+            "mode": "sqlite",
+            "label": source_label_for_sqlite(
+                cwd,
+                db_path,
+                style_scope=style_key,
+                source_scope="style" if style_key else "global",
+            ),
+        }
+    feedback_path = os.path.abspath(feedback_file)
+    return {
+        "rows": read_ndjson_file(feedback_path),
+        "mode": "ndjson",
+        "label": os.path.relpath(feedback_path, cwd).replace("\\", "/"),
+    }
 
 
 def as_num(value, fallback=0.0):
@@ -233,10 +281,14 @@ def get_next_profile_file(cwd):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--feedback-file", default="data/training/feedback.ndjson")
+    parser.add_argument("--feedback-source", default="auto")
+    parser.add_argument("--db-file", default="data/training/training.db")
     parser.add_argument("--base-profile", default="")
     parser.add_argument("--output-file", default="")
     parser.add_argument("--apply", default="false")
     parser.add_argument("--min-feedback", type=int, default=1)
+    parser.add_argument("--style", default="")
+    parser.add_argument("--record-db", default="true")
     args = parser.parse_args()
 
     cwd = os.getcwd()
@@ -247,9 +299,37 @@ def main():
     output_file_name = output_file_arg if output_file_arg else get_next_profile_file(cwd)
     output_file = os.path.abspath(os.path.join(cwd, "config", "profiles", output_file_name))
     apply = to_bool(args.apply, default=False)
+    record_db = to_bool(args.record_db, default=True)
+    run_key = f"profile_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+    started_at = datetime.now(timezone.utc).isoformat()
 
-    feedback_rows = read_ndjson(feedback_file)
+    source_pack = resolve_feedback_rows(
+        cwd,
+        feedback_file=feedback_file,
+        feedback_source=args.feedback_source,
+        db_file=args.db_file,
+        style_scope=args.style,
+    )
+    feedback_rows = source_pack["rows"]
     if len(feedback_rows) < max(1, int(args.min_feedback)):
+        if record_db:
+            conn = connect_db(args.db_file or default_db_path(cwd), ensure_schema=True)
+            record_training_run(
+                conn,
+                run_key=run_key,
+                trainer="python",
+                model_name="profile",
+                model_path="",
+                summary_path="",
+                data_source=source_pack["label"],
+                style_scope=str(args.style or "").strip().lower() or "all",
+                status="skipped",
+                sample_count=len(feedback_rows),
+                started_at=started_at,
+                ended_at=datetime.now(timezone.utc).isoformat(),
+                raw_payload={"reason": "not_enough_feedback"},
+            )
+            conn.close()
         print(f"Training skipped: not_enough_feedback ({len(feedback_rows)})")
         return
 
@@ -258,6 +338,24 @@ def main():
     before = json.dumps(base_profile, ensure_ascii=False, sort_keys=True)
     after = json.dumps(trained, ensure_ascii=False, sort_keys=True)
     if before == after:
+        if record_db:
+            conn = connect_db(args.db_file or default_db_path(cwd), ensure_schema=True)
+            record_training_run(
+                conn,
+                run_key=run_key,
+                trainer="python",
+                model_name="profile",
+                model_path=os.path.relpath(output_file, cwd).replace("\\", "/"),
+                summary_path="",
+                data_source=source_pack["label"],
+                style_scope=str(args.style or "").strip().lower() or "all",
+                status="skipped",
+                sample_count=len(feedback_rows),
+                started_at=started_at,
+                ended_at=datetime.now(timezone.utc).isoformat(),
+                raw_payload={"reason": "no_profile_change"},
+            )
+            conn.close()
         print("Training skipped: no_profile_change")
         return
 
@@ -266,7 +364,8 @@ def main():
     trained["meta"]["trainedFrom"] = os.path.basename(base_profile_path)
     trained["meta"]["trainedAt"] = datetime.now(timezone.utc).isoformat()
     trained["meta"]["feedbackCount"] = len(feedback_rows)
-    trained["meta"]["feedbackFile"] = os.path.relpath(feedback_file, cwd).replace("\\", "/")
+    trained["meta"]["feedbackFile"] = source_pack["label"]
+    trained["meta"]["feedbackSource"] = source_pack["mode"]
     trained["meta"]["trainer"] = "python"
 
     parent = os.path.dirname(output_file)
@@ -276,11 +375,44 @@ def main():
         json.dump(trained, f, indent=2, ensure_ascii=False)
     if apply:
         set_active_profile_file(cwd, os.path.basename(output_file))
+    if record_db:
+        conn = connect_db(args.db_file or default_db_path(cwd), ensure_schema=True)
+        mv = register_model_version(
+            conn,
+            model_name="profile",
+            path=os.path.relpath(output_file, cwd).replace("\\", "/"),
+            source="python",
+            trained_at=trained["meta"]["trainedAt"],
+            meta=trained.get("meta", {}),
+        )
+        record_training_run(
+            conn,
+            run_key=run_key,
+            trainer="python",
+            model_name="profile",
+            model_path=os.path.relpath(output_file, cwd).replace("\\", "/"),
+            summary_path="",
+            data_source=source_pack["label"],
+            style_scope=str(args.style or "").strip().lower() or "all",
+            status="trained",
+            sample_count=len(feedback_rows),
+            started_at=started_at,
+            ended_at=datetime.now(timezone.utc).isoformat(),
+            raw_payload={"version": mv["version"], "apply": bool(apply)},
+        )
+        if apply:
+            upsert_recommendation(
+                conn,
+                rec_key="active_profile",
+                rec_value=os.path.basename(output_file),
+                reason="latest_profile_training",
+            )
+        conn.close()
     print(f"Training complete: {output_file}")
     print(f"From profile: {os.path.basename(base_profile_path)}")
     print(f"Feedback rows: {len(feedback_rows)}")
     print(f"Applied: {str(apply).lower()}")
-    print(f"Feedback file: {os.path.relpath(feedback_file, cwd).replace('\\', '/')}")
+    print(f"Feedback file: {source_pack['label']}")
 
 
 if __name__ == "__main__":

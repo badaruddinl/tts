@@ -4,6 +4,20 @@ import json
 import math
 import os
 from datetime import datetime, timezone
+from pathlib import Path
+
+from training_db import (
+    connect_db,
+    default_db_path,
+    fetch_feedback_rows,
+    insert_metric,
+    load_json_artifact_lookup,
+    record_training_run,
+    register_model_version,
+    resolve_source_mode,
+    source_label_for_sqlite,
+    upsert_recommendation,
+)
 
 try:
     import numpy as np
@@ -11,7 +25,7 @@ except Exception:
     np = None
 
 
-def read_ndjson(file_path):
+def read_ndjson_file(file_path):
     if not os.path.exists(file_path):
         return []
     out = []
@@ -128,16 +142,42 @@ def safe_stat(file_path):
         return {"mtimeMs": 0, "size": 0}
 
 
-def build_samples(cwd, feedback_rows):
-    samples = []
-    for row in feedback_rows:
-        file_path = resolve_prosody_path(cwd, row)
-        if not file_path:
-            continue
+def _resolve_prosody_payload(cwd, row, prosody_lookup=None):
+    file_path = resolve_prosody_path(cwd, row)
+    if file_path:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                prosody = json.load(f)
+                return json.load(f)
         except Exception:
+            pass
+    if isinstance(prosody_lookup, dict):
+        by_path = prosody_lookup.get("by_path", {})
+        by_name = prosody_lookup.get("by_name", {})
+        raw_name = str(row.get("prosodyFile") or "").replace("\\", "/").strip()
+        cand = []
+        if raw_name:
+            cand.append(raw_name)
+            if raw_name.startswith("outputs/"):
+                cand.append(raw_name)
+            else:
+                cand.append(f"outputs/{raw_name}")
+            cand.append(Path(raw_name).name)
+        for k in cand:
+            if not k:
+                continue
+            if k in by_path:
+                return by_path[k]
+            name = Path(k).name
+            if name in by_name:
+                return by_name[name]
+    return None
+
+
+def build_samples(cwd, feedback_rows, prosody_lookup=None):
+    samples = []
+    for row in feedback_rows:
+        prosody = _resolve_prosody_payload(cwd, row, prosody_lookup=prosody_lookup)
+        if not isinstance(prosody, dict):
             continue
         segments = prosody.get("segments") if isinstance(prosody, dict) else []
         if not isinstance(segments, list) or not segments:
@@ -187,9 +227,7 @@ def rows_with_adjust(rows):
     return filter_with_adjust(rows)
 
 
-def compute_signature(cwd, feedback_file, rows):
-    feedback_abs = os.path.abspath(feedback_file)
-    st = safe_stat(feedback_abs)
+def compute_signature(cwd, data_source_label, rows, source_stat):
     stats = []
     for row in rows_with_adjust(rows):
         p = resolve_prosody_path(cwd, row)
@@ -200,9 +238,9 @@ def compute_signature(cwd, feedback_file, rows):
     stats.sort()
     raw = json.dumps(
         {
-            "feedbackFile": os.path.relpath(feedback_abs, cwd).replace("\\", "/"),
-            "feedbackMtimeMs": st["mtimeMs"],
-            "feedbackSize": st["size"],
+            "dataSource": data_source_label,
+            "sourceMtimeMs": int(source_stat.get("mtimeMs", 0)),
+            "sourceSize": int(source_stat.get("size", 0)),
             "feedbackRows": len(rows),
             "prosodyCount": len(stats),
             "prosodyStats": stats,
@@ -308,8 +346,43 @@ def ensure_parent(file_path):
         os.makedirs(parent, exist_ok=True)
 
 
-def load_samples_with_cache(cwd, feedback_file, rows, use_cache=True):
-    sig = compute_signature(cwd, feedback_file, rows)
+def _resolve_feedback_rows(
+    cwd,
+    feedback_file,
+    db_file,
+    feedback_source,
+    style_scope="",
+):
+    db_path = Path(db_file or default_db_path(cwd)).resolve()
+    mode = resolve_source_mode(feedback_source, db_path, fallback="ndjson")
+    style_key = str(style_scope or "").strip().lower()
+
+    if mode == "sqlite":
+        conn = connect_db(db_path, ensure_schema=True)
+        source_scope = "style" if style_key else "global"
+        rows = fetch_feedback_rows(conn, style=style_key, source_scope=source_scope)
+        conn.close()
+        label = source_label_for_sqlite(cwd, db_path, style_scope=style_key, source_scope=source_scope)
+        return {
+            "rows": rows,
+            "mode": "sqlite",
+            "label": label,
+            "sourceStat": safe_stat(str(db_path)),
+        }
+
+    feedback_path = os.path.abspath(feedback_file)
+    rows = read_ndjson_file(feedback_path)
+    label = os.path.relpath(feedback_path, cwd).replace("\\", "/")
+    return {
+        "rows": rows,
+        "mode": "ndjson",
+        "label": label,
+        "sourceStat": safe_stat(feedback_path),
+    }
+
+
+def load_samples_with_cache(cwd, data_source_label, rows, source_stat, use_cache=True, prosody_lookup=None):
+    sig = compute_signature(cwd, data_source_label, rows, source_stat)
     cache_dir = os.path.join(cwd, ".tts-cache", "ml-samples")
     cache_file = os.path.join(cache_dir, f"{sig}_py.json")
     if use_cache and os.path.exists(cache_file):
@@ -328,14 +401,14 @@ def load_samples_with_cache(cwd, feedback_file, rows, use_cache=True):
         except Exception:
             pass
     adjusted = rows_with_adjust(rows)
-    samples = build_samples(cwd, adjusted)
+    samples = build_samples(cwd, adjusted, prosody_lookup=prosody_lookup)
     if use_cache:
         ensure_parent(cache_file)
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "createdAt": datetime.now(timezone.utc).isoformat(),
-                    "feedbackFile": os.path.relpath(os.path.abspath(feedback_file), cwd).replace("\\", "/"),
+                    "dataSource": data_source_label,
                     "signature": sig,
                     "rows": len(rows),
                     "rowsWithAdjust": len(adjusted),
@@ -359,25 +432,64 @@ def run_training(
     output_model,
     summary_file="",
     style_scope="",
+    db_file="",
+    feedback_source="auto",
     ridge=1e-6,
     use_cache=True,
 ):
     cwd = os.getcwd()
-    feedback_path = os.path.abspath(feedback_file)
+    started_at = datetime.now(timezone.utc).isoformat()
+    run_key = f"ml_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
     out_model = os.path.abspath(output_model)
     summary_path = os.path.abspath(summary_file) if summary_file else ""
     style_key = (style_scope or "").strip().lower()
 
-    rows = read_ndjson(feedback_path)
-    sample_pack = load_samples_with_cache(cwd, feedback_path, rows, use_cache=use_cache)
+    source_pack = _resolve_feedback_rows(
+        cwd,
+        feedback_file=feedback_file,
+        db_file=db_file,
+        feedback_source=feedback_source,
+        style_scope=style_key,
+    )
+    rows = source_pack["rows"]
+    prosody_lookup = None
+    if source_pack["mode"] == "sqlite":
+        conn = connect_db(db_file or default_db_path(cwd), ensure_schema=True)
+        prosody_lookup = load_json_artifact_lookup(conn, kind="prosody_json")
+        conn.close()
+    sample_pack = load_samples_with_cache(
+        cwd,
+        data_source_label=source_pack["label"],
+        rows=rows,
+        source_stat=source_pack["sourceStat"],
+        use_cache=use_cache,
+        prosody_lookup=prosody_lookup,
+    )
     samples = sample_pack["samples"]
     result = train_multi_linear(samples, ridge=max(0.0, ridge))
     if result.get("status") != "trained":
+        conn = connect_db(db_file or default_db_path(cwd), ensure_schema=True)
+        record_training_run(
+            conn,
+            run_key=run_key,
+            trainer="python",
+            model_name="prosody_policy",
+            model_path=os.path.relpath(out_model, cwd).replace("\\", "/"),
+            summary_path=os.path.relpath(summary_path, cwd).replace("\\", "/") if summary_path else "",
+            data_source=source_pack["label"],
+            style_scope=style_key if style_key else "all",
+            status="skipped",
+            sample_count=int(result.get("sampleCount", 0)),
+            started_at=started_at,
+            ended_at=datetime.now(timezone.utc).isoformat(),
+            raw_payload=result,
+        )
+        conn.close()
         return {
             "status": "skipped",
             "reason": result.get("reason", "unknown"),
             "sampleCount": int(result.get("sampleCount", 0)),
-            "feedbackFile": os.path.relpath(feedback_path, cwd).replace("\\", "/"),
+            "feedbackFile": source_pack["label"],
         }
 
     meta = {
@@ -386,7 +498,8 @@ def run_training(
         "sourceFeedbackRows": int(sample_pack["rowsWithAdjust"]),
         "version": "prosody-policy-v1",
         "styleScope": style_key if style_key else "all",
-        "feedbackFile": os.path.relpath(feedback_path, cwd).replace("\\", "/"),
+        "feedbackFile": source_pack["label"],
+        "feedbackSource": source_pack["mode"],
         "trainer": "python",
         "backend": "numpy" if np is not None else "pure_python",
         "sampleCache": {
@@ -414,7 +527,8 @@ def run_training(
                 {
                     "status": "trained",
                     "modelPath": os.path.relpath(out_model, cwd).replace("\\", "/"),
-                    "feedbackFile": os.path.relpath(feedback_path, cwd).replace("\\", "/"),
+                    "feedbackFile": source_pack["label"],
+                    "feedbackSource": source_pack["mode"],
                     "sampleCount": int(result["sampleCount"]),
                     "sourceFeedbackRows": int(sample_pack["rowsWithAdjust"]),
                     "styleScope": style_key if style_key else "all",
@@ -425,19 +539,63 @@ def run_training(
                 indent=2,
                 ensure_ascii=False,
             )
+
+    conn = connect_db(db_file or default_db_path(cwd), ensure_schema=True)
+    mv = register_model_version(
+        conn,
+        model_name="prosody_policy",
+        path=os.path.relpath(out_model, cwd).replace("\\", "/"),
+        source="python",
+        trained_at=meta["createdAt"],
+        meta=meta,
+    )
+    record_training_run(
+        conn,
+        run_key=run_key,
+        trainer="python",
+        model_name="prosody_policy",
+        model_path=os.path.relpath(out_model, cwd).replace("\\", "/"),
+        summary_path=os.path.relpath(summary_path, cwd).replace("\\", "/") if summary_path else "",
+        data_source=source_pack["label"],
+        style_scope=style_key if style_key else "all",
+        status="trained",
+        sample_count=int(result["sampleCount"]),
+        started_at=started_at,
+        ended_at=datetime.now(timezone.utc).isoformat(),
+        raw_payload=payload,
+    )
+    insert_metric(
+        conn,
+        run_key=run_key,
+        metric_key="sample_count",
+        metric_value=float(result["sampleCount"]),
+        model_version_id=mv["id"],
+        metric_payload={"sourceFeedbackRows": int(sample_pack["rowsWithAdjust"])},
+    )
+    upsert_recommendation(
+        conn,
+        rec_key="active_prosody_policy",
+        rec_value=os.path.relpath(out_model, cwd).replace("\\", "/"),
+        reason="latest_ml_training",
+        score=float(result["sampleCount"]),
+    )
+    conn.close()
     return {
         "status": "trained",
         "modelPath": out_model,
         "sampleCount": int(result["sampleCount"]),
         "sourceFeedbackRows": int(sample_pack["rowsWithAdjust"]),
         "cacheHit": bool(sample_pack["cacheHit"]),
-        "feedbackFile": os.path.relpath(feedback_path, cwd).replace("\\", "/"),
+        "feedbackFile": source_pack["label"],
+        "feedbackSource": source_pack["mode"],
     }
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--feedback-file", default="data/training/feedback.ndjson")
+    parser.add_argument("--feedback-source", default="auto")
+    parser.add_argument("--db-file", default="data/training/training.db")
     parser.add_argument("--output-model", default="models/prosody-policy-v1.json")
     parser.add_argument("--summary-file", default="")
     parser.add_argument("--style", default="")
@@ -447,6 +605,8 @@ def main():
     use_cache = str(args.no_cache).strip().lower() != "true"
     res = run_training(
         feedback_file=args.feedback_file,
+        feedback_source=args.feedback_source,
+        db_file=args.db_file,
         output_model=args.output_model,
         summary_file=args.summary_file,
         style_scope=args.style,

@@ -1,6 +1,2 @@
-import sys
-from _node_wrap import run_node
-
-
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/benchmark-trainers.mjs"))
+    print("benchmark_trainers_js_removed=true")

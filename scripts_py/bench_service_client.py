@@ -1,6 +1,2 @@
-import sys
-from _node_wrap import run_node
-
-
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/bench-service-client.mjs"))
+    print("bench_service_client_js_removed=true")

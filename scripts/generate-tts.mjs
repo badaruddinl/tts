@@ -37,6 +37,14 @@ function parseArgs(argv) {
   return out;
 }
 
+function toBool(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  const v = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(v)) return true;
+  if (["0", "false", "no", "n", "off"].includes(v)) return false;
+  return fallback;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const runtimeDefaults = getExpressionRuntimeDefaults();
@@ -67,6 +75,9 @@ async function main() {
   const pitch = String(args.pitch || parsed.meta.PITCH || DEFAULTS.pitch);
   const volume = String(args.volume || parsed.meta.VOLUME || DEFAULTS.volume);
   const humanize = String(args.humanize || "").toLowerCase() === "true" || args.humanize === true;
+  const mode = String(args.mode ?? process.env.TTS_MODE ?? "prod").trim().toLowerCase();
+  const defaultSaveProsody = mode === "train" || mode === "debug";
+  const saveProsody = toBool(args["save-prosody"] ?? process.env.TTS_SAVE_PROSODY, defaultSaveProsody);
   const humanizeIntensity = Number(
     args["humanize-intensity"] ??
       process.env.TTS_HUMANIZE_INTENSITY ??
@@ -140,11 +151,11 @@ async function main() {
       backend,
       segmentConcurrency,
       prosodyLimiter,
-      prosodyLimiterStrength
+      prosodyLimiterStrength,
+      saveProsody
     });
-    console.log(
-      `Humanize done: audio=${path.basename(res.audioPath)}, prosody=${path.basename(res.prosodyPath)}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`
-    );
+    const prosodyLabel = res.prosodyPath ? path.basename(res.prosodyPath) : "disabled";
+    console.log(`Humanize done: audio=${path.basename(res.audioPath)}, prosody=${prosodyLabel}, segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`);
   } else {
     await synthesizeToMp3({
       text: parsed.text,

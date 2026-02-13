@@ -1,6 +1,6 @@
 import sys
-from _node_wrap import run_node
 
 
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/eval-ml-policy.mjs"))
+    print("eval_ml_policy_removed_use_expression_or_voice_eval_suites=true")
+    raise SystemExit(0)

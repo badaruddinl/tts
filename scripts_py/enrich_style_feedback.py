@@ -1,6 +1,2 @@
-import sys
-from _node_wrap import run_node
-
-
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/enrich-style-feedback.mjs"))
+    print("enrich_style_feedback_skipped_sqlite_only=true")

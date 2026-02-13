@@ -60,6 +60,37 @@ def resolve_prosody_path(cwd, row):
     return target if target.exists() else None
 
 
+def resolve_prosody_payload(cwd, row, prosody_lookup=None):
+    fp = resolve_prosody_path(cwd, row)
+    if fp:
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    if isinstance(prosody_lookup, dict):
+        by_path = prosody_lookup.get("by_path", {})
+        by_name = prosody_lookup.get("by_name", {})
+        raw_name = str(row.get("prosodyFile") or "").replace("\\", "/").strip()
+        cand = []
+        if raw_name:
+            cand.append(raw_name)
+            if raw_name.startswith("outputs/"):
+                cand.append(raw_name)
+            else:
+                cand.append(f"outputs/{raw_name}")
+            cand.append(Path(raw_name).name)
+        for k in cand:
+            if not k:
+                continue
+            if k in by_path:
+                return by_path[k]
+            name = Path(k).name
+            if name in by_name:
+                return by_name[name]
+    return None
+
+
 def transition_score(segments):
     if not isinstance(segments, list) or len(segments) <= 1:
         return 0.0
@@ -87,23 +118,18 @@ def prosody_energy(segments):
     return acc / len(segments)
 
 
-def read_prosody_stats(cwd, row):
-    fp = resolve_prosody_path(cwd, row)
-    if not fp:
+def read_prosody_stats(cwd, row, prosody_lookup=None):
+    payload = resolve_prosody_payload(cwd, row, prosody_lookup=prosody_lookup)
+    if not isinstance(payload, dict):
         return None
-    try:
-        with open(fp, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-        segments = payload.get("segments") if isinstance(payload, dict) else []
-        if not isinstance(segments, list) or not segments:
-            return None
-        return {
-            "transition": transition_score(segments),
-            "energy": prosody_energy(segments),
-            "segCount": len(segments),
-        }
-    except Exception:
+    segments = payload.get("segments") if isinstance(payload, dict) else []
+    if not isinstance(segments, list) or not segments:
         return None
+    return {
+        "transition": transition_score(segments),
+        "energy": prosody_energy(segments),
+        "segCount": len(segments),
+    }
 
 
 def infer_target_strength(row, stats):
@@ -156,7 +182,7 @@ def limiter_feature_vector(row, stats, style):
     ]
 
 
-def build_samples(cwd, rows, style=""):
+def build_samples(cwd, rows, style="", prosody_lookup=None):
     key = str(style or "").strip().lower()
     out = []
     for row in rows:
@@ -165,7 +191,7 @@ def build_samples(cwd, rows, style=""):
         row_style = str(row.get("style") or "").strip().lower()
         if key and row_style and row_style != key:
             continue
-        stats = read_prosody_stats(cwd, row)
+        stats = read_prosody_stats(cwd, row, prosody_lookup=prosody_lookup)
         if not stats:
             continue
         feat = limiter_feature_vector(row, stats, row_style or key or "natural")
@@ -275,7 +301,7 @@ def predict_strength(model, feature, fallback=0.64):
     return clamp(as_num(fallback, 0.64), 0.45, 0.9)
 
 
-def summarize_rows_for_style(cwd, rows, style=""):
+def summarize_rows_for_style(cwd, rows, style="", prosody_lookup=None):
     key = str(style or "").strip().lower()
     picked = []
     for r in rows or []:
@@ -287,7 +313,7 @@ def summarize_rows_for_style(cwd, rows, style=""):
         return None
     stats = []
     for row in picked:
-        st = read_prosody_stats(cwd, row)
+        st = read_prosody_stats(cwd, row, prosody_lookup=prosody_lookup)
         if st:
             stats.append(st)
     if not stats:

@@ -1,6 +1,2 @@
-import sys
-from _node_wrap import run_node
-
-
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/dedupe-training-data.mjs"))
+    print("dedupe_training_data_skipped_sqlite_only=true")

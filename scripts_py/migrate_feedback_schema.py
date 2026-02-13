@@ -1,6 +1,2 @@
-import sys
-from _node_wrap import run_node
-
-
 if __name__ == "__main__":
-    sys.exit(run_node("scripts/migrate-feedback-schema.mjs"))
+    print("migrate_feedback_schema_skipped_sqlite_only=true")

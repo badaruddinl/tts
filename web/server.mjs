@@ -21,6 +21,7 @@ import {
 import { trainProfileFromFeedback } from "../lib/profile-trainer.mjs";
 import { getExpressionDefaultStyle, getExpressionRuntimeDefaults } from "../lib/expression-defaults.mjs";
 import { validateFeedbackRow, validateTrainingJobRow } from "../lib/ndjson-schema.mjs";
+import { safeAppendTrainingSqlite } from "../lib/training-sqlite-bridge.mjs";
 
 dotenv.config({ quiet: true });
 
@@ -33,6 +34,8 @@ const JOBS_STORE = path.join(CACHE_DIR, "jobs.json");
 const TRAINING_DIR = ensureTrainingDirs();
 const TRAINING_FEEDBACK_FILE = path.join(TRAINING_DIR, "feedback.ndjson");
 const TRAINING_JOBS_FILE = path.join(TRAINING_DIR, "jobs.ndjson");
+const TRAINING_SQLITE_FILE = path.join(TRAINING_DIR, "training.db");
+const WRITE_NDJSON = String(process.env.TTS_NDJSON_TRAINING || "false").toLowerCase() === "true";
 const TRAINING_BENCHMARK_FILE = path.resolve(process.cwd(), "config", "training", "benchmark.txt");
 const AUTO_TRAIN = String(process.env.TTS_AUTO_TRAIN || "true").toLowerCase() === "true";
 const AUTO_TRAIN_MIN_FEEDBACK = Number(process.env.TTS_AUTO_TRAIN_MIN_FEEDBACK || "2");
@@ -431,13 +434,49 @@ function enqueueJob({
         };
         const jobValidation = validateTrainingJobRow(jobRow);
         if (jobValidation.ok) {
-          appendNdjson(TRAINING_JOBS_FILE, jobRow);
-          const styleJobs = getStyleTrainingFile(res.style || vStyle, "jobs");
-          appendNdjson(styleJobs.filePath, {
-            ...jobRow,
-            style: res.style || vStyle,
-            styleKey: styleJobs.styleKey
+          if (WRITE_NDJSON) appendNdjson(TRAINING_JOBS_FILE, jobRow);
+          const sqliteGlobal = await safeAppendTrainingSqlite({
+            kind: "jobs",
+            payload: jobRow,
+            scope: "global",
+            sourceFile: "data/training/jobs.ndjson",
+            dbFile: TRAINING_SQLITE_FILE
           });
+          if (!sqliteGlobal?.ok && !sqliteGlobal?.skipped) {
+            addEvent(job, "warn", `sqlite job mirror failed (global): ${sqliteGlobal.error}`);
+          }
+          let styleJobs = null;
+          if (WRITE_NDJSON) {
+            styleJobs = getStyleTrainingFile(res.style || vStyle, "jobs");
+            appendNdjson(styleJobs.filePath, {
+              ...jobRow,
+              style: res.style || vStyle,
+              styleKey: styleJobs.styleKey
+            });
+          }
+          const styleKey =
+            styleJobs?.styleKey ||
+            String(res.style || vStyle || "general")
+              .toLowerCase()
+              .replace(/[^a-z0-9-_]/g, "_")
+              .replace(/_+/g, "_")
+              .replace(/^_+|_+$/g, "") ||
+            "general";
+          const sqliteStyle = await safeAppendTrainingSqlite({
+            kind: "jobs",
+            payload: {
+              ...jobRow,
+              style: res.style || vStyle,
+              styleKey
+            },
+            scope: "style",
+            styleKey,
+            sourceFile: `data/training/styles/${styleKey}/jobs.ndjson`,
+            dbFile: TRAINING_SQLITE_FILE
+          });
+          if (!sqliteStyle?.ok && !sqliteStyle?.skipped) {
+            addEvent(job, "warn", `sqlite job mirror failed (style): ${sqliteStyle.error}`);
+          }
         } else {
           addEvent(job, "warn", `training job row skipped (${jobValidation.reason})`);
         }
@@ -464,13 +503,49 @@ function enqueueJob({
         };
         const jobValidation = validateTrainingJobRow(jobRow);
         if (jobValidation.ok) {
-          appendNdjson(TRAINING_JOBS_FILE, jobRow);
-          const styleJobs = getStyleTrainingFile(vStyle || "general", "jobs");
-          appendNdjson(styleJobs.filePath, {
-            ...jobRow,
-            style: vStyle || "general",
-            styleKey: styleJobs.styleKey
+          if (WRITE_NDJSON) appendNdjson(TRAINING_JOBS_FILE, jobRow);
+          const sqliteGlobal = await safeAppendTrainingSqlite({
+            kind: "jobs",
+            payload: jobRow,
+            scope: "global",
+            sourceFile: "data/training/jobs.ndjson",
+            dbFile: TRAINING_SQLITE_FILE
           });
+          if (!sqliteGlobal?.ok && !sqliteGlobal?.skipped) {
+            addEvent(job, "warn", `sqlite job mirror failed (global): ${sqliteGlobal.error}`);
+          }
+          let styleJobs = null;
+          if (WRITE_NDJSON) {
+            styleJobs = getStyleTrainingFile(vStyle || "general", "jobs");
+            appendNdjson(styleJobs.filePath, {
+              ...jobRow,
+              style: vStyle || "general",
+              styleKey: styleJobs.styleKey
+            });
+          }
+          const styleKey =
+            styleJobs?.styleKey ||
+            String(vStyle || "general")
+              .toLowerCase()
+              .replace(/[^a-z0-9-_]/g, "_")
+              .replace(/_+/g, "_")
+              .replace(/^_+|_+$/g, "") ||
+            "general";
+          const sqliteStyle = await safeAppendTrainingSqlite({
+            kind: "jobs",
+            payload: {
+              ...jobRow,
+              style: vStyle || "general",
+              styleKey
+            },
+            scope: "style",
+            styleKey,
+            sourceFile: `data/training/styles/${styleKey}/jobs.ndjson`,
+            dbFile: TRAINING_SQLITE_FILE
+          });
+          if (!sqliteStyle?.ok && !sqliteStyle?.skipped) {
+            addEvent(job, "warn", `sqlite job mirror failed (style): ${sqliteStyle.error}`);
+          }
         } else {
           addEvent(job, "warn", `training job row skipped (${jobValidation.reason})`);
         }
@@ -574,7 +649,7 @@ app.get("/api/jobs/:jobId", (req, res) => {
   });
 });
 
-app.post("/api/jobs/:jobId/feedback", (req, res) => {
+app.post("/api/jobs/:jobId/feedback", async (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job) {
     return res.status(404).json({ error: "Job not found." });
@@ -619,12 +694,58 @@ app.post("/api/jobs/:jobId/feedback", (req, res) => {
   if (!feedbackValidation.ok) {
     return res.status(400).json({ error: `Invalid feedback payload (${feedbackValidation.reason}).` });
   }
-  appendNdjson(TRAINING_FEEDBACK_FILE, payload);
-  const styleFeedback = getStyleTrainingFile(job.style || "general", "feedback");
-  appendNdjson(styleFeedback.filePath, {
-    ...payload,
-    styleKey: styleFeedback.styleKey
+  if (WRITE_NDJSON) appendNdjson(TRAINING_FEEDBACK_FILE, payload);
+  const sqliteGlobal = await safeAppendTrainingSqlite({
+    kind: "feedback",
+    payload,
+    scope: "global",
+    sourceFile: "data/training/feedback.ndjson",
+    dbFile: TRAINING_SQLITE_FILE
   });
+  if (!sqliteGlobal?.ok && !sqliteGlobal?.skipped) {
+    addEvent(job, "warn", `sqlite feedback mirror failed (global): ${sqliteGlobal.error}`);
+  }
+  let styleFeedback = null;
+  if (WRITE_NDJSON) {
+    styleFeedback = getStyleTrainingFile(job.style || "general", "feedback");
+    appendNdjson(styleFeedback.filePath, {
+      ...payload,
+      styleKey: styleFeedback.styleKey
+    });
+  }
+  const styleKey =
+    styleFeedback?.styleKey ||
+    String(job.style || "general")
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "") ||
+    "general";
+  const stylePayload = {
+    ...payload,
+    styleKey,
+    voice: job.voice
+  };
+  const sqliteStyle = await safeAppendTrainingSqlite({
+    kind: "feedback",
+    payload: stylePayload,
+    scope: "style",
+    styleKey,
+    sourceFile: `data/training/styles/${styleKey}/feedback.ndjson`,
+    dbFile: TRAINING_SQLITE_FILE
+  });
+  if (!sqliteStyle?.ok && !sqliteStyle?.skipped) {
+    addEvent(job, "warn", `sqlite feedback mirror failed (style): ${sqliteStyle.error}`);
+  }
+  const sqliteStyleFeature = await safeAppendTrainingSqlite({
+    kind: "style-feedback",
+    payload: stylePayload,
+    sourceFile: `data/training/styles/${styleFeedback.styleKey}/feedback.ndjson`,
+    dbFile: TRAINING_SQLITE_FILE
+  });
+  if (!sqliteStyleFeature?.ok && !sqliteStyleFeature?.skipped) {
+    addEvent(job, "warn", `sqlite style_feedback mirror failed: ${sqliteStyleFeature.error}`);
+  }
   addEvent(job, "info", `feedback saved (score=${scoreNum})`);
   let trainRes = null;
   if (AUTO_TRAIN) {
