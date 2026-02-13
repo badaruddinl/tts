@@ -79,6 +79,11 @@ function main() {
   const runExpressionEval = String(args["expression-eval"] ?? "true").toLowerCase() === "true";
   const expressionStrict = String(args["expression-strict"] ?? "false").toLowerCase() === "true";
   const expressionDir = String(args["expression-dir"] || "tests/expressions");
+  const runIntonationEval = String(args["intonation-eval"] ?? "true").toLowerCase() === "true";
+  const intonationOutDir = String(args["intonation-outdir"] || "outputs/eval_intonation_select_self");
+  const intonationIntensities = String(args["intonation-intensities"] || "0.45,0.55,0.64,0.72,0.8");
+  const intonationAutoExpressive = String(args["intonation-auto-expressive"] || "true,false");
+  const intonationAutoExpressiveOffMargin = String(args["intonation-auto-expressive-off-margin"] || "0.1");
   const runExpressionAb = String(args["expression-ab"] ?? "true").toLowerCase() === "true";
   const applyExpressionAb = String(args["expression-ab-apply"] ?? "true").toLowerCase() === "true";
   const expressionAbDir = String(args["expression-ab-dir"] || expressionDir);
@@ -93,6 +98,11 @@ function main() {
   const hybridEvalDir = String(args["hybrid-eval-dir"] || "tests/expressions");
   const hybridStyle = String(args["hybrid-style"] || "tegang");
   const hybridOutDir = String(args["hybrid-outdir"] || "outputs/eval_hybrid_ab_self");
+  const runLimiterEval = String(args["limiter-eval"] ?? "true").toLowerCase() === "true";
+  const limiterOutDir = String(args["limiter-outdir"] || "outputs/eval_limiter_select_self");
+  const limiterStrengths = String(args["limiter-strengths"] || "0.5,0.58,0.64,0.7,0.78");
+  const runLimiterTrain = String(args["limiter-train"] ?? "true").toLowerCase() === "true";
+  const applyLimiterPolicy = String(args["limiter-policy-apply"] ?? "true").toLowerCase() === "true";
   const expressionSelectStyles = String(
     args["expression-select-styles"] || "tegang,natural,sinematik,narator_tegas,melankolis"
   );
@@ -179,6 +189,26 @@ function main() {
     ]);
   }
 
+  if (runIntonationEval) {
+    runStep("intonation_select", [
+      "scripts/select-auto-intonation.mjs",
+      "--dir",
+      expressionDir,
+      "--outdir",
+      intonationOutDir,
+      "--style",
+      hybridStyle,
+      "--hybrid-prosody",
+      "true",
+      "--intensities",
+      intonationIntensities,
+      "--auto-expressive-candidates",
+      intonationAutoExpressive,
+      "--auto-expressive-off-margin",
+      intonationAutoExpressiveOffMargin
+    ]);
+  }
+
   if (runExpressionAb) {
     runStep("expression_ab", [
       "scripts/eval-expression-ab.mjs",
@@ -234,6 +264,29 @@ function main() {
         "--summary",
         `${hybridOutDir}/summary.json`
       ]);
+    }
+  }
+
+  if (runLimiterEval) {
+    runStep("limiter_select", [
+      "scripts/select-prosody-limiter.mjs",
+      "--dir",
+      expressionDir,
+      "--style",
+      hybridStyle,
+      "--hybrid-prosody",
+      "true",
+      "--outdir",
+      limiterOutDir,
+      "--strengths",
+      limiterStrengths
+    ]);
+  }
+
+  if (runLimiterTrain) {
+    runStep("limiter_train", ["scripts/train-limiter-policy.mjs"]);
+    if (applyLimiterPolicy) {
+      runStep("limiter_policy_apply", ["scripts/apply-limiter-policy-default.mjs", "--style", hybridStyle]);
     }
   }
 

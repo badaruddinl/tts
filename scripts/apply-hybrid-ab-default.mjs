@@ -42,7 +42,7 @@ function main() {
   const metrics = selectedHybrid ? summary?.metrics?.hybridOn : summary?.metrics?.hybridOff;
   const transitionDelta = toNum(metrics?.avgOverrideTransitionDelta, 6);
   const changedIntent = toNum(metrics?.avgChangedIntentSegments, 0.5);
-  const limiterStrength = clamp(0.58 + transitionDelta / 20 + changedIntent / 8 + scoreDelta / 30, 0.55, 0.92);
+  const limiterStrength = clamp(0.5 + transitionDelta / 28 + changedIntent / 12 + scoreDelta / 45, 0.5, 0.82);
 
   let defaults = {};
   if (fs.existsSync(configPath)) {

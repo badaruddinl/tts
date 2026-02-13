@@ -43,7 +43,7 @@ function main() {
   }
   const transitionDelta = toNum(summary?.metrics?.[selectedKey]?.avgOverrideTransitionDelta, 6);
   const changedIntent = toNum(summary?.metrics?.[selectedKey]?.avgChangedIntentSegments, 0.5);
-  const limiterStrength = clamp(0.58 + transitionDelta / 20 + changedIntent / 8, 0.55, 0.92);
+  const limiterStrength = clamp(0.52 + transitionDelta / 28 + changedIntent / 12, 0.5, 0.82);
 
   let defaults = {};
   if (fs.existsSync(configPath)) {

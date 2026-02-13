@@ -19,13 +19,26 @@ function parseArgs(argv) {
   return out;
 }
 
-function runEval({ inputPath, outputPath, style, profileFile, hybridProsody, humanizeIntensity }) {
+function runEval({
+  inputPath,
+  outputPath,
+  style,
+  profileFile,
+  hybridProsody,
+  humanizeIntensity,
+  prosodyLimiter,
+  prosodyLimiterStrength,
+  autoExpressive
+}) {
   const report = evaluateAutoExpression({
     inputPath,
     style,
     profileFile,
     humanizeIntensity,
-    hybridProsody
+    hybridProsody,
+    prosodyLimiter,
+    prosodyLimiterStrength,
+    autoExpressive
   });
   fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
 }
@@ -44,6 +57,10 @@ function main() {
   const hybridProsody =
     String(args["hybrid-prosody"] ?? "true").toLowerCase() === "true";
   const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
+  const prosodyLimiter =
+    String(args["prosody-limiter"] ?? "true").toLowerCase() === "true";
+  const prosodyLimiterStrength = Number(args["prosody-limiter-strength"] ?? 0.64);
+  const autoExpressive = String(args["auto-expressive"] ?? "true").toLowerCase() === "true";
   const maxAutoDelta = Number(args["max-auto-delta"] ?? 9.8);
   const maxOverrideDelta = Number(args["max-override-delta"] ?? 10.2);
   const minAvgOverrideSegments = Number(args["min-avg-override-segments"] ?? 0.8);
@@ -68,7 +85,17 @@ function main() {
   for (const file of files) {
     const inputPath = path.join(testsDir, file);
     const outPath = path.join(reportDir, `${file.replace(/\.txt$/i, "")}.json`);
-    runEval({ inputPath, outputPath: outPath, style, profileFile, hybridProsody, humanizeIntensity });
+    runEval({
+      inputPath,
+      outputPath: outPath,
+      style,
+      profileFile,
+      hybridProsody,
+      humanizeIntensity,
+      prosodyLimiter,
+      prosodyLimiterStrength,
+      autoExpressive
+    });
     const report = JSON.parse(fs.readFileSync(outPath, "utf8"));
     rows.push({
       file,
@@ -76,7 +103,9 @@ function main() {
       changedIntentSegments: Number(report?.metrics?.changedIntentSegments || 0),
       overrideIntentSegments: Number(report?.metrics?.overrideIntentSegments || 0),
       autoTransitionDelta: Number(report?.metrics?.autoTransitionDelta || 0),
-      overrideTransitionDelta: Number(report?.metrics?.overrideTransitionDelta || 0)
+      overrideTransitionDelta: Number(report?.metrics?.overrideTransitionDelta || 0),
+      autoProsodyEnergy: Number(report?.metrics?.autoProsodyEnergy || 0),
+      overrideProsodyEnergy: Number(report?.metrics?.overrideProsodyEnergy || 0)
     });
   }
 
@@ -92,7 +121,9 @@ function main() {
       avgChangedIntentSegments: Number(safeAvg(rows.map((r) => r.changedIntentSegments)).toFixed(3)),
       avgOverrideIntentSegments: Number(safeAvg(rows.map((r) => r.overrideIntentSegments)).toFixed(3)),
       avgAutoTransitionDelta: Number(safeAvg(rows.map((r) => r.autoTransitionDelta)).toFixed(3)),
-      avgOverrideTransitionDelta: Number(safeAvg(rows.map((r) => r.overrideTransitionDelta)).toFixed(3))
+      avgOverrideTransitionDelta: Number(safeAvg(rows.map((r) => r.overrideTransitionDelta)).toFixed(3)),
+      avgAutoProsodyEnergy: Number(safeAvg(rows.map((r) => r.autoProsodyEnergy)).toFixed(3)),
+      avgOverrideProsodyEnergy: Number(safeAvg(rows.map((r) => r.overrideProsodyEnergy)).toFixed(3))
     }
   };
 
@@ -140,6 +171,8 @@ function main() {
     `- avgOverrideIntentSegments: ${summary.metrics.avgOverrideIntentSegments}`,
     `- avgAutoTransitionDelta: ${summary.metrics.avgAutoTransitionDelta}`,
     `- avgOverrideTransitionDelta: ${summary.metrics.avgOverrideTransitionDelta}`,
+    `- avgAutoProsodyEnergy: ${summary.metrics.avgAutoProsodyEnergy}`,
+    `- avgOverrideProsodyEnergy: ${summary.metrics.avgOverrideProsodyEnergy}`,
     "",
     "## Quality Gate",
     "",

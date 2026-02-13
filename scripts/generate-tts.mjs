@@ -43,7 +43,7 @@ async function main() {
 
   if (args.help) {
     console.log(
-      "Usage: npm run tts -- --input text.txt --output season1.mp3 [--humanize true --style misteri --speech-style auto --voice-tone auto --voice-character true --segment-concurrency 2 --prosody-limiter true --prosody-limiter-strength 0.72]"
+      "Usage: npm run tts -- --input text.txt --output season1.mp3 [--humanize true --style misteri --speech-style auto --voice-tone auto --voice-character true --segment-concurrency 2 --prosody-limiter true --prosody-limiter-strength 0.64]"
     );
     process.exit(0);
   }
@@ -77,8 +77,11 @@ async function main() {
   const useMlPolicy =
     String(args["ml-policy"] ?? process.env.TTS_ML_POLICY ?? "true").toLowerCase() === "true";
   const autoExpressive =
-    String(args["auto-expressive"] ?? process.env.TTS_AUTO_EXPRESSIVE ?? "true").toLowerCase() ===
-    "true";
+    String(
+      args["auto-expressive"] ??
+        process.env.TTS_AUTO_EXPRESSIVE ??
+        (runtimeDefaults.autoExpressive === null ? "true" : String(runtimeDefaults.autoExpressive))
+    ).toLowerCase() === "true";
   const speechStyle = String(args["speech-style"] ?? process.env.TTS_SPEECH_STYLE ?? "auto");
   const hybridProsody =
     String(
@@ -98,7 +101,7 @@ async function main() {
     args["prosody-limiter-strength"] ??
       process.env.TTS_PROSODY_LIMITER_STRENGTH ??
       runtimeDefaults?.prosodyLimiter?.strength ??
-      0.72
+      0.64
   );
   const voiceCharacter =
     String(args["voice-character"] ?? process.env.TTS_VOICE_CHARACTER ?? "true").toLowerCase() ===

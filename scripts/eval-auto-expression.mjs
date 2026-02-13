@@ -39,12 +39,25 @@ function transitionScore(segments) {
   return Number(avg(delta).toFixed(3));
 }
 
+function prosodyEnergyScore(segments) {
+  if (!Array.isArray(segments) || segments.length === 0) return 0;
+  const acc = segments.reduce(
+    (sum, s) =>
+      sum + Math.abs(Number(s?.rate || 0)) + Math.abs(Number(s?.pitch || 0)) + Math.abs(Number(s?.volume || 0)),
+    0
+  );
+  return Number((acc / segments.length).toFixed(3));
+}
+
 export function evaluateAutoExpression({
   inputPath,
   style = null,
   profileFile = null,
   humanizeIntensity = 0.7,
-  hybridProsody = true
+  hybridProsody = true,
+  prosodyLimiter = true,
+  prosodyLimiterStrength = 0.64,
+  autoExpressive = true
 }) {
   const input = path.resolve(String(inputPath || "text_intent_test.txt"));
   if (!fs.existsSync(input)) throw new Error(`Input file not found: ${input}`);
@@ -59,7 +72,9 @@ export function evaluateAutoExpression({
     profileFile,
     humanizeIntensity,
     hybridProsody,
-    autoExpressive: true,
+    prosodyLimiter,
+    prosodyLimiterStrength,
+    autoExpressive,
     allowIntentOverride: false
   });
   const overrideRun = previewAutoExpressionFromText({
@@ -68,7 +83,9 @@ export function evaluateAutoExpression({
     profileFile,
     humanizeIntensity,
     hybridProsody,
-    autoExpressive: true,
+    prosodyLimiter,
+    prosodyLimiterStrength,
+    autoExpressive,
     allowIntentOverride: true
   });
 
@@ -98,7 +115,9 @@ export function evaluateAutoExpression({
       autoTransitionDelta: transitionScore(autoSeg),
       overrideTransitionDelta: transitionScore(overSeg),
       changedIntentSegments: changedIntent,
-      overrideIntentSegments: overrideIntentCount
+      overrideIntentSegments: overrideIntentCount,
+      autoProsodyEnergy: prosodyEnergyScore(autoSeg),
+      overrideProsodyEnergy: prosodyEnergyScore(overSeg)
     },
     auto: autoSeg.map((s) => ({
       index: s.index,
@@ -128,12 +147,19 @@ function main() {
   const humanizeIntensity = Number(args["humanize-intensity"] ?? 0.7);
   const hybridProsody =
     String(args["hybrid-prosody"] ?? "true").toLowerCase() === "true";
+  const prosodyLimiter =
+    String(args["prosody-limiter"] ?? "true").toLowerCase() === "true";
+  const prosodyLimiterStrength = Number(args["prosody-limiter-strength"] ?? 0.64);
+  const autoExpressive = String(args["auto-expressive"] ?? "true").toLowerCase() === "true";
   const report = evaluateAutoExpression({
     inputPath: input,
     style,
     profileFile,
     humanizeIntensity,
-    hybridProsody
+    hybridProsody,
+    prosodyLimiter,
+    prosodyLimiterStrength,
+    autoExpressive
   });
 
   const parent = path.dirname(output);

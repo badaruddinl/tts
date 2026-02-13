@@ -51,6 +51,11 @@ const DEFAULTS = {
   humanize: String(process.env.TTS_HUMANIZE || "false").toLowerCase() === "true",
   humanizeIntensity: Number(process.env.TTS_HUMANIZE_INTENSITY || RUNTIME_DEFAULTS.humanizeIntensity || "0.45"),
   style: process.env.TTS_STYLE || getExpressionDefaultStyle("natural"),
+  autoExpressive:
+    String(
+      process.env.TTS_AUTO_EXPRESSIVE ??
+        (RUNTIME_DEFAULTS.autoExpressive === null ? "true" : String(RUNTIME_DEFAULTS.autoExpressive))
+    ).toLowerCase() === "true",
   hybridProsody:
     String(
       process.env.TTS_HYBRID_PROSODY ??
@@ -68,7 +73,7 @@ const DEFAULTS = {
           : String(RUNTIME_DEFAULTS.prosodyLimiter.enabled))
     ).toLowerCase() === "true",
   prosodyLimiterStrength: Number(
-    process.env.TTS_PROSODY_LIMITER_STRENGTH ?? RUNTIME_DEFAULTS?.prosodyLimiter?.strength ?? "0.72"
+    process.env.TTS_PROSODY_LIMITER_STRENGTH ?? RUNTIME_DEFAULTS?.prosodyLimiter?.strength ?? "0.64"
   )
 };
 
@@ -287,6 +292,7 @@ function enqueueJob({
   volume,
   humanize,
   style,
+  autoExpressive,
   speechStyle,
   voiceCharacter,
   voiceTone,
@@ -324,6 +330,7 @@ function enqueueJob({
   const vHumanize = parseBool(humanize, DEFAULTS.humanize);
   const styleCandidate = String(style || "").trim();
   const vStyle = styleCandidate || DEFAULTS.style || getExpressionDefaultStyle("natural");
+  const vAutoExpressive = parseBool(autoExpressive, DEFAULTS.autoExpressive);
   const vSpeechStyle = String(speechStyle || DEFAULTS.speechStyle || "auto").trim() || "auto";
   const vVoiceCharacter = parseBool(voiceCharacter, DEFAULTS.voiceCharacter);
   const vVoiceTone = String(voiceTone || DEFAULTS.voiceTone || "auto").trim() || "auto";
@@ -358,6 +365,7 @@ function enqueueJob({
     humanize: vHumanize,
     humanizeIntensity: humanizeStrength,
     speechStyle: vSpeechStyle,
+    autoExpressive: vAutoExpressive,
     voiceCharacter: vVoiceCharacter,
     voiceTone: vVoiceTone,
     hybridProsody: vHybridProsody,
@@ -398,6 +406,7 @@ function enqueueJob({
           cacheDir: CACHE_DIR,
           humanizeIntensity: humanizeStrength,
           style: vStyle,
+          autoExpressive: vAutoExpressive,
           speechStyle: vSpeechStyle,
           useMlPolicy: USE_ML_POLICY,
           profileFile: profileFileOverride,
@@ -489,6 +498,7 @@ app.post("/api/jobs", async (req, res) => {
     volume: req.body?.volume,
     humanize: req.body?.humanize,
     style: req.body?.style,
+    autoExpressive: req.body?.autoExpressive ?? req.body?.auto_expressive,
     speechStyle: req.body?.speechStyle ?? req.body?.speech_style,
     voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character,
     voiceTone: req.body?.voiceTone ?? req.body?.voice_tone,
@@ -524,6 +534,7 @@ app.post("/api/training/jobs", async (req, res) => {
     voice: req.body?.voice,
     humanize: true,
     style: req.body?.style || DEFAULTS.style,
+    autoExpressive: req.body?.autoExpressive ?? req.body?.auto_expressive ?? DEFAULTS.autoExpressive,
     speechStyle: req.body?.speechStyle ?? req.body?.speech_style ?? DEFAULTS.speechStyle,
     voiceCharacter: req.body?.voiceCharacter ?? req.body?.voice_character ?? DEFAULTS.voiceCharacter,
     voiceTone: req.body?.voiceTone ?? req.body?.voice_tone ?? DEFAULTS.voiceTone,

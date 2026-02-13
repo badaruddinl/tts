@@ -77,7 +77,7 @@ Prosody limiter (human-like guardrail) is enabled by default in humanize mode.
 You can override it manually:
 
 ```powershell
-npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --prosody-limiter true --prosody-limiter-strength 0.72
+npm run tts -- --input text.txt --output result_humanize.mp3 --humanize true --prosody-limiter true --prosody-limiter-strength 0.64
 ```
 
 Choose a style profile:
@@ -196,8 +196,11 @@ Automatically runs:
 - Generate benchmark for 2 default voices (`Ardi` + `Gadis`)
 - Run expression quality suite (`tests/expressions`)
 - Auto-select expression default style and save to `config/expression/defaults.json`
+- Run auto-intonation selection (humanize intensity + auto-expressive candidates) and auto-apply best config
 - Run expression A/B and auto-apply winner runtime defaults (`style + humanize intensity + hybrid + prosody limiter`)
 - Run hybrid prosody A/B suite (`hybrid off` vs `hybrid on`)
+- Run limiter strength selection (evaluated on suite metrics) and auto-apply the best value
+- Train limiter policy from feedback (regression) and auto-apply predicted strength
 - Generate final TTS automatically from `template.tts.txt` into `outputs/final.mp3`
 
 Example options:
@@ -210,6 +213,10 @@ Optional expression flags:
 - `--expression-eval false` to skip expression suite + default selection
 - `--expression-strict true` to make quality gate failure stop the pipeline
 - `--expression-dir tests/expressions` to use a custom expression test directory
+- `--intonation-eval false` to skip auto-intonation selection
+- `--intonation-intensities 0.45,0.55,0.64,0.72,0.8` to set intensity candidates
+- `--intonation-auto-expressive true,false` to set auto-expressive candidates
+- `--intonation-auto-expressive-off-margin 0.1` allow `auto-expressive=false` only if its score gain passes this margin
 - `--expression-ab false` to skip expression A/B
 - `--expression-ab-apply false` to run A/B but not auto-apply winner to runtime defaults
 - `--expression-ab-intensity-a 0.4` A configuration humanize intensity
@@ -219,6 +226,10 @@ Optional expression flags:
 - `--hybrid-strict true` to stop pipeline if hybrid A/B step fails
 - `--hybrid-eval-dir tests/expressions` to use custom hybrid test directory
 - `--hybrid-style tegang` to set style evaluated in hybrid A/B
+- `--limiter-eval false` to skip limiter strength evaluation
+- `--limiter-strengths 0.5,0.58,0.64,0.7,0.78` to set limiter candidates
+- `--limiter-train false` to skip limiter policy training
+- `--limiter-policy-apply false` to skip applying predicted limiter strength
 - `--voice-eval false` to skip voice character suite
 - `--voice-strict true` to make voice suite gate failure stop the pipeline
 - `--final-tts false` to skip auto-generate final TTS
