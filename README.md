@@ -226,6 +226,7 @@ Optional expression flags:
 - `--final-tts-output outputs/final.mp3` to change auto-generate output file
 - `--sleep-ms 2000` (loop mode) to set delay between rounds
 - `--stop-on-error true` (loop mode) to stop loop if one round fails
+- `--max-runs 1` (loop mode) to run finite loops (0 = infinite)
 
 ## 7) Auto vs Tag Override evaluation
 

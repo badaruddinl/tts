@@ -1,7 +1,14 @@
 import { spawnSync } from "child_process";
 
 function parseArgs(argv) {
-  const out = { passthrough: [] };
+  const out = {
+    passthrough: [],
+    trainer: "py",
+    stopOnError: false,
+    sleepMs: 2000,
+    maxRuns: 0
+  };
+  const localOnly = new Set(["trainer", "stop-on-error", "sleep-ms", "max-runs"]);
   for (let i = 0; i < argv.length; i += 1) {
     const item = argv[i];
     if (!item.startsWith("--")) {
@@ -10,12 +17,41 @@ function parseArgs(argv) {
     }
     const key = item.slice(2);
     const next = argv[i + 1];
-    if (!next || next.startsWith("--")) {
-      out[key] = true;
+    const hasValue = Boolean(next) && !next.startsWith("--");
+    if (!localOnly.has(key)) {
+      out.passthrough.push(item);
+      if (hasValue) {
+        out.passthrough.push(next);
+        i += 1;
+      }
       continue;
     }
-    out[key] = next;
-    i += 1;
+
+    if (key === "trainer") {
+      if (hasValue) {
+        out.trainer = String(next);
+        i += 1;
+      } else {
+        out.trainer = "py";
+      }
+      continue;
+    }
+    if (key === "stop-on-error") {
+      out.stopOnError = hasValue ? String(next).toLowerCase() === "true" : true;
+      if (hasValue) i += 1;
+      continue;
+    }
+    if (key === "sleep-ms") {
+      const raw = hasValue ? Number(next) : 2000;
+      if (hasValue) i += 1;
+      out.sleepMs = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 2000;
+      continue;
+    }
+    if (key === "max-runs") {
+      const raw = hasValue ? Number(next) : 0;
+      if (hasValue) i += 1;
+      out.maxRuns = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+    }
   }
   return out;
 }
@@ -27,9 +63,9 @@ function sleep(ms) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const trainer = String(args.trainer || "py").toLowerCase().trim();
-  const stopOnError = String(args["stop-on-error"] ?? "false").toLowerCase() === "true";
-  const sleepMsRaw = Number(args["sleep-ms"] ?? 2000);
-  const sleepMs = Number.isFinite(sleepMsRaw) ? Math.max(0, Math.floor(sleepMsRaw)) : 2000;
+  const stopOnError = Boolean(args.stopOnError);
+  const sleepMs = Number.isFinite(args.sleepMs) ? Math.max(0, Math.floor(args.sleepMs)) : 2000;
+  const maxRuns = Number.isFinite(args.maxRuns) ? Math.max(0, Math.floor(args.maxRuns)) : 0;
   const passthrough = Array.isArray(args.passthrough) ? args.passthrough : [];
 
   let stopping = false;
@@ -43,6 +79,7 @@ async function main() {
 
   let round = 0;
   while (!stopping) {
+    if (maxRuns > 0 && round >= maxRuns) break;
     round += 1;
     console.log(`loop: run #${round} (trainer=${trainer})`);
     const cmdArgs = ["scripts/self-train.mjs", "--trainer", trainer, ...passthrough];
