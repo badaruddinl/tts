@@ -66,6 +66,7 @@
     "prod:apply": "python scripts_py/apply_expression_ab_default.py && python scripts_py/apply_hybrid_ab_default.py && python scripts_py/apply_limiter_policy_default.py && npm run tuning:apply:sample",
     "prod:pipeline": "npm run prod:train && npm run prod:eval && npm run prod:apply",
     "prod:pipeline:loop": "powershell -NoProfile -Command \"while ($true) { npm run prod:pipeline; if ($LASTEXITCODE -ne 0) { break }; Start-Sleep -Seconds 3 }\"",
+    "prod:pipeline:loop:linux": "node -e \"const {spawnSync}=require('child_process'); while(true){ const r=spawnSync('npm',['run','prod:pipeline'],{stdio:'inherit',shell:true}); if((r.status??1)!==0) break; spawnSync('node',['-e','setTimeout(()=>{},3000)'],{stdio:'ignore'}); }\"",
     "js:tts": "node scripts/generate-tts.mjs",
     "py:eval:prosody-parity": "python scripts_py/contract_prosody_parity.py --dir tests/expressions --style tegang --humanize-intensity 0.55 --tolerance 12",
     "py:eval:prosody-parity:mid": "python scripts_py/contract_prosody_parity.py --dir tests/expressions --style tegang --humanize-intensity 0.55 --tolerance 5",
