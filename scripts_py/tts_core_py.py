@@ -343,31 +343,75 @@ def split_segment_into_phrases(text, min_words=2, max_words=6, target_words=4):
     if len(words) <= max_words + 2:
         return [raw] if raw else []
 
-    comma_clauses = [s.strip() for s in re.split(r",\s+", raw) if s.strip()]
-    if len(comma_clauses) > 1:
-        valid = True
-        for c in comma_clauses:
-            n = len(to_word_tokens(c))
-            if n < 1 or n > max_words + 2:
-                valid = False
-                break
-        if valid:
-            out = []
-            for i, c in enumerate(comma_clauses):
-                out.append((c + ",") if i < len(comma_clauses) - 1 else c)
-            return out
+    # Flexible split: prioritize natural pause points and vary chunk size by local context.
+    clauses = []
+    pos = 0
+    for m in re.finditer(r"([^,;:!?]+)([,;:!?]?)", raw):
+        body = str(m.group(1) or "").strip()
+        punct = str(m.group(2) or "")
+        if body:
+            clauses.append((body, punct))
+        pos = m.end()
+    if not clauses and raw:
+        clauses = [(raw, "")]
+    if pos < len(raw):
+        tail = raw[pos:].strip()
+        if tail:
+            clauses.append((tail, ""))
 
+    expressive_single = {
+        "dan",
+        "tapi",
+        "namun",
+        "lalu",
+        "jadi",
+        "karena",
+        "bahkan",
+        "oh",
+        "ah",
+        "wah",
+        "hmm",
+    }
+    split_connectors = expressive_single | {"sementara", "sedangkan", "ketika", "meski", "walau"}
     out = []
-    i = 0
-    while i < len(words):
-        remain = len(words) - i
-        size = min(max_words, max(min_words, target_words))
-        if remain <= max_words:
-            size = remain
-        elif remain - size < min_words:
-            size = max(min_words, remain - min_words)
-        out.append(" ".join(words[i : i + size]))
-        i += size
+    for clause, punct in clauses:
+        c_words = to_word_tokens(clause)
+        if not c_words:
+            continue
+        i = 0
+        while i < len(c_words):
+            remain = len(c_words) - i
+            cur = str(c_words[i]).lower().strip(".,;:!?")
+
+            local_max = max(3, min(9, int(max_words) + 3))
+            local_min = 1
+            local_target = max(2, min(local_max, int(target_words) + max(0, len(c_words) // 7)))
+
+            if cur in expressive_single:
+                size = 1
+            else:
+                size = min(remain, local_target)
+                if i + size < len(c_words):
+                    # Cut early before connector to keep phrasing human-like.
+                    for j in range(1, min(size + 1, remain)):
+                        nxt = str(c_words[i + j]).lower().strip(".,;:!?")
+                        if nxt in split_connectors:
+                            size = j
+                            break
+
+            if remain <= local_max:
+                size = remain
+            elif remain - size < local_min:
+                size = max(local_min, remain - local_min)
+
+            size = max(local_min, min(local_max, size))
+            chunk = " ".join(c_words[i : i + size]).strip()
+            if chunk:
+                out.append(chunk)
+            i += size
+
+        if punct and out:
+            out[-1] = f"{out[-1]}{punct}"
     return [x for x in out if x]
 
 
@@ -518,10 +562,6 @@ def apply_human_like_prosody_limiter(units, humanize_intensity=0.45, style_name=
     abs_pitch = 18.0 if expressive else 16.5
     abs_volume = 16.0 if expressive else 14.0
     softness = 0.75 + strength * 0.25
-    step_rate = (2.8 + intensity * 1.3) * softness + 0.55
-    step_pitch = (2.0 + intensity * 1.0) * softness + 0.45
-    step_volume = (1.8 + intensity * 0.9) * softness + 0.45
-
     def _deterministic_jitter(idx, axis):
         base = (idx + 1) * (17 if axis == "rate" else 23 if axis == "pitch" else 29)
         noise = math.sin(base * 0.173) * 0.5 + math.cos(base * 0.097) * 0.5
@@ -537,10 +577,13 @@ def apply_human_like_prosody_limiter(units, humanize_intensity=0.45, style_name=
         intent = str(reason.get("intent") or "netral").lower()
         intent_intensity = clamp(to_num(reason.get("intentIntensity"), 0.5), 0.0, 1.0)
         is_final_seg = idx == total - 1
+        is_first_seg = idx == 0
         ending_q = raw_text.endswith("?")
         ending_x = raw_text.endswith("!")
         ending_e = raw_text.endswith("...")
         ending_p = raw_text.endswith(".")
+        word_count = len(to_word_tokens(raw_text))
+        emphatic = bool(re.search(r"\b(oh|ah|wah|hmm|ya|tidak|bukan)\b", raw_text, re.I))
 
         # Dynamic limiter strength per segment to avoid one-shape robot cadence.
         dyn_strength = strength
@@ -552,6 +595,10 @@ def apply_human_like_prosody_limiter(units, humanize_intensity=0.45, style_name=
             dyn_strength -= 0.04
         if ending_e:
             dyn_strength += 0.05
+        if word_count <= 2 or emphatic:
+            dyn_strength -= 0.05
+        if word_count >= 12:
+            dyn_strength += 0.04
         dyn_strength = clamp(dyn_strength, 0.3, 1.0)
         dyn_softness = 0.75 + dyn_strength * 0.25
         dyn_step_rate = (2.8 + intensity * 1.3) * dyn_softness + 0.55
@@ -564,10 +611,26 @@ def apply_human_like_prosody_limiter(units, humanize_intensity=0.45, style_name=
         nxt["pitch"] = float(nxt.get("pitch", 0.0)) + _deterministic_jitter(idx, "pitch") * jitter_scale * 0.7
         nxt["volume"] = float(nxt.get("volume", 0.0)) + _deterministic_jitter(idx, "volume") * jitter_scale * 0.45
 
+        # Opening/transition shaping: gentler lead-in and more elastic short chunks.
+        if is_first_seg:
+            nxt["rate"] -= 0.5
+            nxt["pitch"] -= 0.2
+        if word_count <= 2:
+            nxt["rate"] += 1.2
+            nxt["pitch"] += 0.35
+        elif word_count >= 12:
+            nxt["rate"] -= 0.8
+            nxt["volume"] += 0.25
+
         # Anti-stretch ending: avoid over-long robotic tail at sentence/final endings.
         if ending_p and not ending_e:
             nxt["rate"] += 0.8
             nxt["pitch"] -= 0.25
+        if ending_q:
+            nxt["pitch"] += 0.65
+        if ending_x:
+            nxt["pitch"] += 0.35
+            nxt["volume"] += 0.35
         if is_final_seg:
             nxt["rate"] += 1.0
             nxt["pitch"] -= 0.45

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-02-13T17:16:18.274642+00:00",
+  "updatedAt": "2026-02-14T02:24:27.361163+00:00",
   "source": {
     "testsDir": "tests/expressions",
     "candidateStyles": [
@@ -125,14 +125,14 @@
     }
   },
   "limiterPolicy": {
-    "updatedAt": "2026-02-13T17:16:17.690341+00:00",
+    "updatedAt": "2026-02-14T02:24:26.661219+00:00",
     "style": "tegang",
     "alpha": 0.65,
     "fallbackStrength": 0.818,
     "predictedStrength": 0.694,
     "blendedStrength": 0.738,
     "modelMeta": {
-      "createdAt": "2026-02-13T17:14:09.690259+00:00",
+      "createdAt": "2026-02-14T02:21:51.262500+00:00",
       "sampleCount": 186,
       "styleScope": "all",
       "feedbackFile": "sqlite:data/training/training.db#feedback(scope=global,style=all)",

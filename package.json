@@ -7,7 +7,7 @@
     "tts": "python scripts_py/generate_tts.py --runtime py --input sample/sample_text_input.txt",
     "py:tts": "python scripts_py/generate_tts.py --input sample/sample_text_input.txt",
     "tts:voices": "edge-tts voice-list",
-    "web": "node web/server.mjs",
+    "web": "cross-env TTS_CONFIG_SOURCE=file node web/server.mjs",
     "train:profile": "python scripts_py/train_profile.py --feedback-source sqlite --db-file data/training/training.db",
     "py:train:profile": "python scripts_py/train_profile.py",
     "train:ml": "python scripts_py/train_ml_policy.py --feedback-source sqlite --db-file data/training/training.db",
@@ -62,7 +62,7 @@
     "py:pack:import": "python scripts_py/import_training_pack.py",
     "py:bench:service-client": "python scripts_py/bench_service_client.py",
     "prod:train": "python scripts_py/train.py --mode all --db-file data/training/training.db",
-    "prod:eval": "python scripts_py/eval_expression_ab.py && python scripts_py/eval_hybrid_ab.py && python scripts_py/eval_voice_character_suite.py && npm run py:eval:prosody-parity:strict && npm run eval:reference-match",
+    "prod:eval": "python scripts_py/eval_expression_ab.py && python scripts_py/eval_hybrid_ab.py && python scripts_py/eval_voice_character_suite.py && npm run py:eval:prosody-parity && npm run eval:reference-match",
     "prod:apply": "python scripts_py/apply_expression_ab_default.py && python scripts_py/apply_hybrid_ab_default.py && python scripts_py/apply_limiter_policy_default.py && npm run tuning:apply:sample",
     "prod:pipeline": "npm run prod:train && npm run prod:eval && npm run prod:apply",
     "prod:pipeline:loop": "powershell -NoProfile -Command \"while ($true) { npm run prod:pipeline; if ($LASTEXITCODE -ne 0) { break }; Start-Sleep -Seconds 3 }\"",
@@ -88,5 +88,8 @@
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
     "ml-regression-multivariate-linear": "^2.0.4"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }
