@@ -84,11 +84,15 @@ const DEFAULTS = {
     ).toLowerCase() === "true",
   prosodyLimiterStrength: Number(
     process.env.TTS_PROSODY_LIMITER_STRENGTH ?? RUNTIME_DEFAULTS?.prosodyLimiter?.strength ?? "0.64"
-  )
+  ),
+  multiProsodyCandidates: Math.max(1, Math.min(6, Number(process.env.TTS_MULTI_PROSODY_CANDIDATES || "3")))
 };
 
 const jobs = new Map();
 const MAX_JOBS = 100;
+const pipelineRuns = new Map();
+const MAX_PIPELINE_RUNS = 20;
+let activePipelineRunId = null;
 let voiceCache = null;
 let voiceCacheAt = 0;
 const VOICE_CACHE_MS = 5 * 60 * 1000;
@@ -146,6 +150,105 @@ function cleanupJobsIfNeeded() {
     jobs.delete(keys[i]);
   }
   scheduleSaveJobs();
+}
+
+function cleanupPipelineRunsIfNeeded() {
+  if (pipelineRuns.size <= MAX_PIPELINE_RUNS) return;
+  const keys = [...pipelineRuns.keys()];
+  const extra = keys.length - MAX_PIPELINE_RUNS;
+  for (let i = 0; i < extra; i += 1) {
+    pipelineRuns.delete(keys[i]);
+  }
+}
+
+function resolveNpmBin() {
+  return "npm";
+}
+
+function addPipelineLog(run, level, message) {
+  if (!run) return;
+  run.logs = Array.isArray(run.logs) ? run.logs : [];
+  run.logs.push({
+    at: new Date().toISOString(),
+    level,
+    message: String(message || "").slice(0, 800)
+  });
+  if (run.logs.length > 400) {
+    run.logs = run.logs.slice(-400);
+  }
+  run.updatedAt = new Date().toISOString();
+}
+
+function startPipelineRun({ loop = false } = {}) {
+  if (activePipelineRunId) {
+    const active = pipelineRuns.get(activePipelineRunId);
+    if (active && active.status === "running") {
+      return { error: "pipeline already running", runId: activePipelineRunId };
+    }
+  }
+  const runId = getNowId();
+  const run = {
+    id: runId,
+    mode: loop ? "loop" : "single",
+    status: "running",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    command: loop ? "npm run prod:pipeline:loop" : "npm run prod:pipeline",
+    exitCode: null,
+    pid: null,
+    logs: []
+  };
+  pipelineRuns.set(runId, run);
+  cleanupPipelineRunsIfNeeded();
+  activePipelineRunId = runId;
+
+  const npmBin = resolveNpmBin();
+  const pipelineScript = loop ? "prod:pipeline:loop" : "prod:pipeline";
+  const command = `${npmBin} run ${pipelineScript}`;
+  let child;
+  try {
+    child = spawn(command, {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      shell: true
+    });
+  } catch (err) {
+    run.status = "failed";
+    run.exitCode = -1;
+    addPipelineLog(run, "error", err.message || String(err));
+    if (activePipelineRunId === runId) activePipelineRunId = null;
+    return { error: "failed to start pipeline process", detail: err.message || String(err), runId };
+  }
+  run.pid = child.pid || null;
+  addPipelineLog(run, "info", `started: ${run.command}`);
+
+  child.stdout.on("data", (chunk) => {
+    const text = String(chunk || "");
+    for (const line of text.split(/\r?\n/)) {
+      if (line.trim()) addPipelineLog(run, "info", line.trim());
+    }
+  });
+  child.stderr.on("data", (chunk) => {
+    const text = String(chunk || "");
+    for (const line of text.split(/\r?\n/)) {
+      if (line.trim()) addPipelineLog(run, "error", line.trim());
+    }
+  });
+  child.on("error", (err) => {
+    run.status = "failed";
+    run.exitCode = -1;
+    addPipelineLog(run, "error", err.message || String(err));
+    if (activePipelineRunId === runId) activePipelineRunId = null;
+  });
+  child.on("close", (code) => {
+    run.exitCode = Number(code ?? 0);
+    run.status = run.exitCode === 0 ? "completed" : "failed";
+    addPipelineLog(run, run.status === "completed" ? "info" : "error", `finished exit=${run.exitCode}`);
+    if (activePipelineRunId === runId) activePipelineRunId = null;
+  });
+  run.child = child;
+  return { runId };
 }
 
 function appendLog(jobId, level, message) {
@@ -261,7 +364,8 @@ async function synthesizeViaPython({
   hybridProsody,
   prosodyLimiter,
   prosodyLimiterStrength,
-  humanizeIntensity
+  humanizeIntensity,
+  multiProsodyCandidates
 }) {
   const scriptPath = path.resolve(process.cwd(), "scripts_py", "generate_tts.py");
   const inputPath = path.join(CACHE_DIR, `job_input_${jobId}.txt`);
@@ -305,7 +409,9 @@ async function synthesizeViaPython({
     "--prosody-limiter-strength",
     String(prosodyLimiterStrength),
     "--humanize-intensity",
-    String(humanizeIntensity)
+    String(humanizeIntensity),
+    "--multi-prosody-candidates",
+    String(Math.max(1, Math.min(6, Number(multiProsodyCandidates || 1))))
   ];
   if (profileFile) {
     args.push("--profile-file", String(profileFile));
@@ -406,6 +512,65 @@ app.get("/api/styles", (req, res) => {
   });
 });
 
+app.post("/api/pipeline/run", (req, res) => {
+  const loop = parseBool(req.body?.loop, false);
+  const started = startPipelineRun({ loop });
+  if (started.error) {
+    return res.status(409).json(started);
+  }
+  return res.status(202).json({ runId: started.runId, status: "running", mode: loop ? "loop" : "single" });
+});
+
+app.get("/api/pipeline/active", (req, res) => {
+  if (!activePipelineRunId) return res.json({ active: null });
+  const run = pipelineRuns.get(activePipelineRunId);
+  if (!run) return res.json({ active: null });
+  return res.json({
+    active: {
+      id: run.id,
+      mode: run.mode,
+      status: run.status,
+      createdAt: run.createdAt,
+      updatedAt: run.updatedAt,
+      exitCode: run.exitCode,
+      command: run.command
+    }
+  });
+});
+
+app.get("/api/pipeline/:runId", (req, res) => {
+  const run = pipelineRuns.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "pipeline run not found" });
+  return res.json({
+    id: run.id,
+    mode: run.mode,
+    status: run.status,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    exitCode: run.exitCode,
+    command: run.command,
+    logs: Array.isArray(run.logs) ? run.logs : []
+  });
+});
+
+app.post("/api/pipeline/:runId/stop", (req, res) => {
+  const run = pipelineRuns.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "pipeline run not found" });
+  if (run.status !== "running") return res.json({ ok: true, status: run.status });
+  try {
+    if (run.child?.pid) {
+      run.child.kill("SIGTERM");
+    }
+    run.status = "stopped";
+    run.exitCode = -2;
+    addPipelineLog(run, "warn", "stopped by user");
+    if (activePipelineRunId === run.id) activePipelineRunId = null;
+    return res.json({ ok: true, status: "stopped" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
 app.get("/api/profiles", (req, res) => {
   const active = loadActiveProfile();
   return res.json({
@@ -439,6 +604,7 @@ function enqueueJob({
   hybridProsody,
   prosodyLimiter,
   prosodyLimiterStrength,
+  multiProsodyCandidates,
   segmentConcurrency: segmentConcurrencyRaw,
   outputName,
   profileFileOverride = null,
@@ -484,6 +650,10 @@ function enqueueJob({
     ? Math.max(0.3, Math.min(1, vProsodyLimiterStrengthRaw))
     : DEFAULTS.prosodyLimiterStrength;
   const segmentConcurrency = parseSegmentConcurrency(segmentConcurrencyRaw ?? DEFAULTS.segmentConcurrency, DEFAULTS.segmentConcurrency);
+  const vMultiProsodyCandidates = Math.max(
+    1,
+    Math.min(6, Number((multiProsodyCandidates ?? DEFAULTS.multiProsodyCandidates) || 1))
+  );
 
   const requestedName = outputName || parsed.meta.OUTPUT || jobId;
   const baseName = sanitizeBaseName(requestedName);
@@ -510,6 +680,7 @@ function enqueueJob({
     hybridProsody: vHybridProsody,
     prosodyLimiter: vProsodyLimiter,
     prosodyLimiterStrength: vProsodyLimiterStrength,
+    multiProsodyCandidates: vMultiProsodyCandidates,
     segmentConcurrency,
     profileFileOverride,
     source,
@@ -555,7 +726,8 @@ function enqueueJob({
           segmentConcurrency,
           hybridProsody: vHybridProsody,
           prosodyLimiter: vProsodyLimiter,
-          prosodyLimiterStrength: vProsodyLimiterStrength
+          prosodyLimiterStrength: vProsodyLimiterStrength,
+          multiProsodyCandidates: vMultiProsodyCandidates
         });
         addEvent(job, "info", `humanize segments=${res.segments}, style=${res.style}, profile=${res.profileFile}`);
         const jobRow = {
@@ -638,7 +810,8 @@ function enqueueJob({
           segmentConcurrency,
           hybridProsody: vHybridProsody,
           prosodyLimiter: vProsodyLimiter,
-          prosodyLimiterStrength: vProsodyLimiterStrength
+          prosodyLimiterStrength: vProsodyLimiterStrength,
+          multiProsodyCandidates: vMultiProsodyCandidates
         });
         const jobRow = {
           at: new Date().toISOString(),
@@ -732,6 +905,7 @@ app.post("/api/jobs", async (req, res) => {
     prosodyLimiter: req.body?.prosodyLimiter ?? req.body?.prosody_limiter,
     prosodyLimiterStrength: req.body?.prosodyLimiterStrength ?? req.body?.prosody_limiter_strength,
     segmentConcurrency: req.body?.segmentConcurrency ?? req.body?.segment_concurrency,
+    multiProsodyCandidates: req.body?.multiProsodyCandidates ?? req.body?.multi_prosody_candidates,
     outputName: req.body?.outputName,
     source: "manual"
   });
@@ -769,6 +943,8 @@ app.post("/api/training/jobs", async (req, res) => {
     prosodyLimiterStrength:
       req.body?.prosodyLimiterStrength ?? req.body?.prosody_limiter_strength ?? DEFAULTS.prosodyLimiterStrength,
     segmentConcurrency: req.body?.segmentConcurrency ?? req.body?.segment_concurrency ?? DEFAULTS.segmentConcurrency,
+    multiProsodyCandidates:
+      req.body?.multiProsodyCandidates ?? req.body?.multi_prosody_candidates ?? DEFAULTS.multiProsodyCandidates,
     outputName: req.body?.outputName || `training_${req.body?.style || DEFAULTS.style}`,
     profileFileOverride: profileFile,
     source: "training_benchmark"

@@ -52,9 +52,13 @@ const trainingIntensityEl = document.getElementById("trainingIntensity");
 const trainingIntensityValueEl = document.getElementById("trainingIntensityValue");
 const trainingOutputNameEl = document.getElementById("trainingOutputName");
 const runTrainingBtnEl = document.getElementById("runTrainingBtn");
+const runFullPipelineBtnEl = document.getElementById("runFullPipelineBtn");
+const runFullPipelineLoopBtnEl = document.getElementById("runFullPipelineLoopBtn");
+const stopFullPipelineBtnEl = document.getElementById("stopFullPipelineBtn");
 
 let pollingTimer = null;
 let currentJobId = null;
+let currentPipelineRunId = null;
 let activeTab = "normal";
 
 async function refreshProfileState(preferredProfile = "") {
@@ -132,6 +136,28 @@ function stopPolling() {
   if (pollingTimer) {
     clearInterval(pollingTimer);
     pollingTimer = null;
+  }
+}
+
+async function pollPipeline(runId) {
+  const res = await fetch(`/api/pipeline/${runId}`);
+  const data = await res.json();
+  if (!res.ok) {
+    setStatus(`pipeline error (${data.error || "unknown"})`);
+    stopPolling();
+    runFullPipelineBtnEl.disabled = false;
+    runFullPipelineLoopBtnEl.disabled = false;
+    stopFullPipelineBtnEl.disabled = true;
+    return;
+  }
+  setStatus(`pipeline ${data.status} (${data.mode || "single"})`);
+  jobEl.textContent = `Pipeline: ${runId}`;
+  renderEvents(data.logs);
+  if (data.status !== "running") {
+    stopPolling();
+    runFullPipelineBtnEl.disabled = false;
+    runFullPipelineLoopBtnEl.disabled = false;
+    stopFullPipelineBtnEl.disabled = true;
   }
 }
 
@@ -343,6 +369,53 @@ async function submitTrainingJob() {
   runTrainingBtnEl.disabled = false;
 }
 
+async function runFullPipeline(loop = false) {
+  runFullPipelineBtnEl.disabled = true;
+  runFullPipelineLoopBtnEl.disabled = true;
+  stopFullPipelineBtnEl.disabled = false;
+  setStatus(loop ? "starting loop pipeline" : "starting full pipeline");
+  const res = await fetch("/api/pipeline/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ loop: Boolean(loop) })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    setStatus(`pipeline error (${data.error || "unknown"})`);
+    runFullPipelineBtnEl.disabled = false;
+    runFullPipelineLoopBtnEl.disabled = false;
+    stopFullPipelineBtnEl.disabled = true;
+    return;
+  }
+  currentPipelineRunId = data.runId;
+  stopPolling();
+  pollingTimer = setInterval(() => {
+    pollPipeline(currentPipelineRunId).catch(() => {
+      setStatus("pipeline connection issue, retrying");
+    });
+  }, 2000);
+  await pollPipeline(currentPipelineRunId);
+}
+
+async function stopFullPipeline() {
+  if (!currentPipelineRunId) {
+    stopFullPipelineBtnEl.disabled = true;
+    return;
+  }
+  const res = await fetch(`/api/pipeline/${currentPipelineRunId}/stop`, {
+    method: "POST"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    setStatus(`stop failed (${data.error || "unknown"})`);
+    return;
+  }
+  setStatus(`pipeline ${data.status || "stopped"}`);
+  runFullPipelineBtnEl.disabled = false;
+  runFullPipelineLoopBtnEl.disabled = false;
+  stopFullPipelineBtnEl.disabled = true;
+}
+
 generateBtn.addEventListener("click", () => {
   submitJob().catch((err) => {
     setStatus(`error (${err.message || String(err)})`);
@@ -354,6 +427,30 @@ runTrainingBtnEl.addEventListener("click", () => {
   submitTrainingJob().catch((err) => {
     setStatus(`training error (${err.message || String(err)})`);
     runTrainingBtnEl.disabled = false;
+  });
+});
+
+runFullPipelineBtnEl.addEventListener("click", () => {
+  runFullPipeline(false).catch((err) => {
+    setStatus(`pipeline error (${err.message || String(err)})`);
+    runFullPipelineBtnEl.disabled = false;
+    runFullPipelineLoopBtnEl.disabled = false;
+    stopFullPipelineBtnEl.disabled = true;
+  });
+});
+
+runFullPipelineLoopBtnEl.addEventListener("click", () => {
+  runFullPipeline(true).catch((err) => {
+    setStatus(`pipeline error (${err.message || String(err)})`);
+    runFullPipelineBtnEl.disabled = false;
+    runFullPipelineLoopBtnEl.disabled = false;
+    stopFullPipelineBtnEl.disabled = true;
+  });
+});
+
+stopFullPipelineBtnEl.addEventListener("click", () => {
+  stopFullPipeline().catch((err) => {
+    setStatus(`stop failed (${err.message || String(err)})`);
   });
 });
 
@@ -447,6 +544,7 @@ voiceFitEl.addEventListener("input", () => {
 });
 
 switchTab("normal");
+stopFullPipelineBtnEl.disabled = true;
 
 loadDefaults().catch(() => {
   setStatus("failed to load defaults");

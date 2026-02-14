@@ -46,7 +46,8 @@ def help_text():
     return (
         "Usage: npm run py:tts -- --input text.txt --output result.mp3 "
         "[--humanize true --style tegang --humanize-intensity 0.55 "
-        "--auto-punctuate true --auto-punctuate-mode balanced --text-rewrite true]"
+        "--auto-punctuate true --auto-punctuate-mode balanced --text-rewrite true "
+        "--multi-prosody-candidates 3]"
     )
 
 
@@ -140,6 +141,9 @@ def main():
     auto_punctuate_mode = str(args.get("auto-punctuate-mode") or os.environ.get("TTS_AUTO_PUNCTUATE_MODE") or "balanced")
     text_rewrite = to_bool(args.get("text-rewrite"), to_bool(os.environ.get("TTS_TEXT_REWRITE"), True))
     text_lexicon_path = str(args.get("text-lexicon") or os.environ.get("TTS_TEXT_LEXICON") or "config/text/lexicon.json")
+    multi_prosody_candidates = int(
+        float(args.get("multi-prosody-candidates") or os.environ.get("TTS_MULTI_PROSODY_CANDIDATES") or 3)
+    )
     profile_file = str(args.get("profile-file") or "").strip() or None
     if sample_lock and not unlock_sample:
         if defaults.get("style"):
@@ -189,6 +193,7 @@ def main():
                     auto_punctuate_mode=auto_punctuate_mode,
                     text_rewrite=text_rewrite,
                     text_lexicon_path=text_lexicon_path,
+                    multi_prosody_candidates=max(1, min(6, multi_prosody_candidates)),
                 )
             )
             prosody_label = Path(str(res.get("prosodyPath"))).name if res.get("prosodyPath") else "disabled"

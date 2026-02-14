@@ -20,6 +20,10 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def now_tag_local():
+    return datetime.now().strftime("%Y%m%d%H%M%S")
+
+
 def rel(cwd, target):
     return str(Path(target).resolve().relative_to(Path(cwd).resolve())).replace("\\", "/")
 
@@ -33,9 +37,9 @@ def run_cmd(cmd):
 
 def run_profile(db_file, min_feedback=1):
     cwd = os.getcwd()
-    run_key = f"profile_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    run_key = f"profile_{now_tag_local()}"
     started_at = now_iso()
-    out_name = f"train_db_profile_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.json"
+    out_name = f"train_db_profile_{now_tag_local()}.json"
     cmd = [
         "python",
         "scripts_py/train_profile.py",
@@ -87,7 +91,7 @@ def run_profile(db_file, min_feedback=1):
 
 def run_ml(db_file, output_model, summary_file=""):
     cwd = os.getcwd()
-    run_key = f"ml_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    run_key = f"ml_{now_tag_local()}"
     started_at = now_iso()
     res = run_ml_training(
         feedback_file="data/training/feedback.ndjson",
@@ -152,7 +156,7 @@ def run_ml(db_file, output_model, summary_file=""):
 
 def run_limiter(db_file, output_model, summary_file=""):
     cwd = os.getcwd()
-    run_key = f"limiter_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    run_key = f"limiter_{now_tag_local()}"
     started_at = now_iso()
     cmd = [
         "python",

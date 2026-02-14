@@ -647,6 +647,150 @@ def apply_human_like_prosody_limiter(units, humanize_intensity=0.45, style_name=
     return out
 
 
+def build_segment_candidate_prosody(final_vals, text="", reason=None, idx=0, total=1, candidate_count=1):
+    base = {
+        "rate": float((final_vals or {}).get("rate", 0.0)),
+        "pitch": float((final_vals or {}).get("pitch", 0.0)),
+        "volume": float((final_vals or {}).get("volume", 0.0)),
+    }
+    n = max(1, min(int(candidate_count or 1), 6))
+    if n <= 1:
+        return [base]
+
+    raw = str(text or "")
+    words = len(to_word_tokens(raw))
+    ending_q = raw.endswith("?")
+    ending_x = raw.endswith("!")
+    ending_e = raw.endswith("...")
+    is_first = idx == 0
+    is_last = idx == max(0, total - 1)
+    intent = str((reason or {}).get("intent") or "netral").lower()
+    intent_intensity = clamp(to_num((reason or {}).get("intentIntensity"), 0.5), 0.0, 1.0)
+
+    out = [base]
+    # Candidate 2: more expressive contour.
+    c = dict(base)
+    c["rate"] += 0.9 + (0.5 * intent_intensity if intent in ("kaget", "marah", "tegang") else 0.0)
+    c["pitch"] += 0.45 + (0.3 * intent_intensity if ending_q or ending_x else 0.0)
+    c["volume"] += 0.35
+    if ending_q:
+        c["pitch"] += 0.55
+    if ending_x:
+        c["pitch"] += 0.25
+        c["volume"] += 0.45
+    if words <= 2:
+        c["rate"] += 0.8
+    out.append(c)
+
+    if n >= 3:
+        # Candidate 3: slower and calmer for long/reflective phrase.
+        c = dict(base)
+        c["rate"] -= 1.1 + (0.35 * intent_intensity if intent in ("sedih", "tenang") else 0.0)
+        c["pitch"] -= 0.35
+        if words >= 10:
+            c["rate"] -= 0.7
+        if ending_e:
+            c["rate"] -= 0.4
+            c["pitch"] -= 0.25
+        out.append(c)
+
+    if n >= 4:
+        # Candidate 4: transition-safe with modest movement.
+        c = dict(base)
+        c["rate"] += 0.2
+        c["pitch"] += 0.1
+        c["volume"] -= 0.15
+        out.append(c)
+
+    if n >= 5:
+        # Candidate 5: clear ending release.
+        c = dict(base)
+        c["rate"] += 0.6
+        c["pitch"] -= 0.4
+        if is_last:
+            c["rate"] += 0.5
+            c["pitch"] -= 0.35
+        out.append(c)
+
+    if n >= 6:
+        # Candidate 6: opening emphasis.
+        c = dict(base)
+        if is_first:
+            c["rate"] -= 0.35
+            c["pitch"] -= 0.25
+        c["volume"] += 0.2
+        out.append(c)
+
+    clamped = []
+    for cand in out[:n]:
+        clamped.append(
+            {
+                "rate": clamp(float(cand.get("rate", 0.0)), -30.0, 30.0),
+                "pitch": clamp(float(cand.get("pitch", 0.0)), -18.0, 18.0),
+                "volume": clamp(float(cand.get("volume", 0.0)), -16.0, 16.0),
+            }
+        )
+    return clamped
+
+
+def score_segment_candidate(candidate, prev_final=None, text="", reason=None, idx=0, total=1):
+    cand = candidate or {}
+    rate = float(cand.get("rate", 0.0))
+    pitch = float(cand.get("pitch", 0.0))
+    volume = float(cand.get("volume", 0.0))
+    raw = str(text or "")
+    words = len(to_word_tokens(raw))
+    ending_q = raw.endswith("?")
+    ending_x = raw.endswith("!")
+    ending_e = raw.endswith("...")
+    ending_p = raw.endswith(".")
+    intent = str((reason or {}).get("intent") or "netral").lower()
+    intensity = clamp(to_num((reason or {}).get("intentIntensity"), 0.5), 0.0, 1.0)
+
+    score = 0.0
+    if prev_final is not None:
+        pr = float(prev_final.get("rate", 0.0))
+        pp = float(prev_final.get("pitch", 0.0))
+        pv = float(prev_final.get("volume", 0.0))
+        dr = abs(rate - pr)
+        dp = abs(pitch - pp)
+        dv = abs(volume - pv)
+        # Penalize abrupt jumps but also penalize near-identical repetition.
+        score += dr * 0.34 + dp * 0.44 + dv * 0.18
+        if dr < 0.18 and dp < 0.15 and dv < 0.12:
+            score += 0.9
+
+    # Local pacing target by phrase length.
+    target_rate = 0.0
+    if words <= 2:
+        target_rate = 1.1
+    elif words >= 12:
+        target_rate = -0.8
+    score += abs(rate - target_rate) * 0.12
+
+    # Ending-shape priors.
+    if ending_q:
+        if pitch < 0.0:
+            score += 0.65
+    if ending_x:
+        if volume < 0.2:
+            score += 0.55
+    if ending_e:
+        if rate > 0.4:
+            score += 0.45
+    if ending_p and (idx == total - 1) and pitch > 1.0:
+        score += 0.4
+
+    # Intent alignment.
+    if intent in ("kaget", "marah", "tegang"):
+        if volume < -0.1:
+            score += 0.45 * (0.6 + intensity)
+    if intent in ("sedih", "tenang"):
+        if rate > 1.2:
+            score += 0.35 * (0.6 + intensity)
+    return float(score)
+
+
 def count_letters(text):
     return sum(1 for c in str(text or "") if ("a" <= c <= "z") or ("A" <= c <= "Z"))
 
@@ -1022,6 +1166,7 @@ async def synthesize_humanized_to_mp3(
     auto_punctuate_mode="balanced",
     text_rewrite=True,
     text_lexicon_path=None,
+    multi_prosody_candidates=1,
 ):
     prepared = preprocess_text(
         text=text,
@@ -1078,6 +1223,14 @@ async def synthesize_humanized_to_mp3(
     )
     for i, row in enumerate(proposed):
         row["final"] = limited[i]
+        row["candidates"] = build_segment_candidate_prosody(
+            row["final"],
+            text=str((row.get("seg") or {}).get("text") or ""),
+            reason=(row.get("seg") or {}).get("reason") or {},
+            idx=i,
+            total=len(proposed),
+            candidate_count=multi_prosody_candidates,
+        )
 
     out_base = Path(str(output)).with_suffix("").resolve()
     out_base.parent.mkdir(parents=True, exist_ok=True)
@@ -1088,24 +1241,61 @@ async def synthesize_humanized_to_mp3(
     sem = asyncio.Semaphore(max(1, min(int(segment_concurrency or 1), 8)))
     seg_paths = [None] * len(proposed)
 
-    async def _run_one(idx, unit):
+    prev_selected = None
+    for idx, unit in enumerate(proposed):
         seg = unit["seg"]
-        final = unit["final"]
-        seg_out = cache_dir / f"seg_{idx+1:04d}.mp3"
-        async with sem:
-            await synth_edge_segment(
-                text=seg["text"],
-                output_mp3=seg_out,
-                voice=voice,
-                rate=format_percent_signed(final["rate"]),
-                pitch=format_hz_signed(final["pitch"]),
-                volume=format_percent_signed(final["volume"]),
-            )
-        seg["ml"] = unit["ml"]
-        seg["final"] = {"rate": final["rate"], "pitch": final["pitch"], "volume": final["volume"]}
-        seg_paths[idx] = str(seg_out)
+        cands = unit.get("candidates") if isinstance(unit.get("candidates"), list) else []
+        if not cands:
+            cands = [unit.get("final") or {"rate": 0.0, "pitch": 0.0, "volume": 0.0}]
 
-    await asyncio.gather(*[_run_one(i, unit) for i, unit in enumerate(proposed)])
+        synth_paths = [None] * len(cands)
+
+        async def _run_candidate(cidx, cand):
+            seg_out = cache_dir / f"seg_{idx+1:04d}_c{cidx+1:02d}.mp3"
+            async with sem:
+                await synth_edge_segment(
+                    text=seg["text"],
+                    output_mp3=seg_out,
+                    voice=voice,
+                    rate=format_percent_signed(cand["rate"]),
+                    pitch=format_hz_signed(cand["pitch"]),
+                    volume=format_percent_signed(cand["volume"]),
+                )
+            synth_paths[cidx] = str(seg_out)
+
+        await asyncio.gather(*[_run_candidate(ci, cand) for ci, cand in enumerate(cands)])
+
+        best_idx = 0
+        best_score = None
+        for ci, cand in enumerate(cands):
+            sc = score_segment_candidate(
+                cand,
+                prev_final=prev_selected,
+                text=seg.get("text") or "",
+                reason=seg.get("reason") or {},
+                idx=idx,
+                total=len(proposed),
+            )
+            if best_score is None or sc < best_score:
+                best_score = sc
+                best_idx = ci
+
+        selected = cands[best_idx]
+        seg["ml"] = unit["ml"]
+        seg["final"] = {"rate": selected["rate"], "pitch": selected["pitch"], "volume": selected["volume"]}
+        seg["selectedCandidate"] = int(best_idx + 1)
+        seg["candidateCount"] = int(len(cands))
+        seg_paths[idx] = str(synth_paths[best_idx])
+        prev_selected = selected
+
+        for ci, pth in enumerate(synth_paths):
+            if ci == best_idx or not pth:
+                continue
+            try:
+                os.remove(pth)
+            except Exception:
+                pass
+
     concat_mp3_files(seg_paths, target_mp3)
     post_applied = False
     post_path = str(out_base.with_name(out_base.name + ".post.mp3"))

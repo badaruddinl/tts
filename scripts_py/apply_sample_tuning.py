@@ -142,6 +142,18 @@ def main():
     segment_stats = summarize_segments(sample.get("segments"))
     now = datetime.now(timezone.utc).isoformat()
     defaults["updatedAt"] = now
+    lock_profile_from_sample = str(args.get("lock-profile-from-sample") or "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    selected_profile = (
+        str(sample.get("profileFile") or "").strip() or "active"
+        if lock_profile_from_sample
+        else "active"
+    )
+
     defaults["selectedRuntime"] = {
         "source": "sample_tuning",
         "sampleFile": str(sample_path.relative_to(Path.cwd())).replace("\\", "/"),
@@ -150,7 +162,7 @@ def main():
         "style": style,
         "sampleStyle": raw_style,
         "sampleStyleFallback": bool(style_res["fallback"]),
-        "profileFile": str(sample.get("profileFile") or "").strip() or "active",
+        "profileFile": selected_profile,
         "humanizeIntensity": humanize_intensity,
         "autoExpressive": auto_expressive,
         "hybridProsody": hybrid,
